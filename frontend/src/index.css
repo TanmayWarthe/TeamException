@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Outfit', system-ui, sans-serif;
+
+  --color-primary: #EF4444;
+  /* Red 500 */
+  --color-primary-light: #F87171;
+  /* Red 400 */
+  --color-primary-dark: #DC2626;
+  /* Red 600 */
+
+  --color-bg-soft: #F9FAFB;
+  /* Gray 50 */
+  --color-surface: #FFFFFF;
+  --color-text-main: #111827;
+  /* Gray 900 */
+  --color-text-muted: #6B7280;
+  /* Gray 500 */
+}
+
+@layer base {
+  body {
+    @apply bg-bg-soft text-text-main font-sans antialiased selection:bg-primary/10 selection:text-primary;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display text-text-main tracking-tight;
+  }
+}
+
+.card-minimal {
+  @apply bg-white border border-gray-100 shadow-sm rounded-xl transition-all duration-200;
+}
+
+.btn-primary {
+  @apply px-5 py-2.5 bg-primary text-white font-medium rounded-lg shadow-sm hover:bg-primary-dark transition-colors duration-200 ease-in-out active:scale-[0.98];
+}
+
+.btn-secondary {
+  @apply px-5 py-2.5 bg-white text-gray-700 font-medium rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200 ease-in-out active:scale-[0.98];
+}
+
+.input-field {
+  @apply w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary transition-all duration-200;
+}
+
+/* Custom Scrollbar for Webkit */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-200 rounded-full hover:bg-gray-300 transition-colors;
+}
