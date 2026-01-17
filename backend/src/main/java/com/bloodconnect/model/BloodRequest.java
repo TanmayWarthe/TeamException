@@ -20,10 +20,14 @@ public class BloodRequest {
     @JoinColumn(name = "requester_user_id") // Links to User causing request (Patient/Hospital)
     private User requester;
 
+    @ManyToOne
+    @JoinColumn(name = "patient_id") // Links to actual patient entity
+    private Patient patient;
+
     private String patientName; // If requested by hospital for a specific patient
     private String bloodGroup;
     private Integer unitsRequired;
-    
+
     @Enumerated(EnumType.STRING)
     private Urgency urgency; // NORMAL, URGENT, EMERGENCY
 
@@ -42,6 +46,6 @@ public class BloodRequest {
     }
 
     public enum RequestStatus {
-        PENDING, ACCEPTED, FULFILLED, CANCELLED
+        PENDING, MATCHED, ACCEPTED, FULFILLED, CANCELLED
     }
 }

@@ -50,7 +50,7 @@ const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [passwordStrength, setPasswordStrength] = useState(0)
-  const { register } = useAuth()
+  const { signup } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -206,7 +206,7 @@ const RegisterPage = () => {
         if (formData.state) userData.state = formData.state
       }
 
-      const userCred = await register(formData.email, formData.password, userData)
+      const userCred = await signup(formData.email, formData.password, formData.name, formData.role)
       localStorage.setItem('userRole', formData.role)
 
       // Post-Registration: Save detailed profile to backend
@@ -214,24 +214,63 @@ const RegisterPage = () => {
 
       try {
         if (formData.role === 'donor') {
-          await fetch(`http://localhost:8080/api/donors/register?uid=${uid}`, {
+          const response = await fetch(`http://localhost:8080/api/donors/register?uid=${uid}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               name: formData.name,
-              bloodGroup: formData.bloodType, // Backend expects bloodGroup
+              bloodGroup: formData.bloodType,
               rhFactor: formData.rhFactor,
               dob: formData.dateOfBirth,
               phone: formData.phone,
               address: formData.address,
-              // Location (lat/lng) would go here if we had it
             })
           });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to save donor profile: ${errorText}`);
+          }
+        } else if (formData.role === 'patient') {
+          const response = await fetch(`http://localhost:8080/api/patients/register?uid=${uid}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: formData.name,
+              bloodGroup: formData.bloodType,
+              dob: formData.dateOfBirth,
+              phone: formData.phone,
+              address: formData.address,
+              disease: formData.disease,
+            })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to save patient profile: ${errorText}`);
+          }
+        } else if (formData.role === 'hospital') {
+          const response = await fetch(`http://localhost:8080/api/hospitals/register?uid=${uid}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              hospitalName: formData.hospitalName,
+              licenseNumber: formData.licenseNumber,
+              phone: formData.phone,
+              address: formData.address,
+            })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to save hospital profile: ${errorText}`);
+          }
         }
-        // Similar calls for Patient/Hospital can be added here or handled by separate endpoints
       } catch (backendError) {
         console.error("Failed to save detailed profile", backendError);
-        // Optionally warn user, but account is created
+        setError(`Registration successful but profile save failed: ${backendError.message}`);
+        setLoading(false);
+        return; // Don't navigate if backend save failed
       }
 
 

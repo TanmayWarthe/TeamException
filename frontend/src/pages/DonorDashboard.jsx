@@ -4,7 +4,7 @@ import { FiDroplet, FiClock, FiCheckCircle, FiHeart, FiCalendar, FiUser, FiMapPi
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api.service';
 
-const DONOR_ID = 1;
+// Removed hardcoded DONOR_ID - using currentUser.uid instead
 
 const DonorDashboard = () => {
   const { currentUser } = useAuth();
@@ -23,24 +23,41 @@ const DonorDashboard = () => {
   }, []);
 
   const fetchDashboardData = async () => {
+    if (!currentUser?.uid) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const [donationsRes, requestsRes] = await Promise.allSettled([
-        // History endpoint not yet implemented, using empty array for now or mock
-        // apiService.get(`/donors/history/${DONOR_ID}`),
-        Promise.resolve({ data: [] }),
+        apiService.get(`/donations/donor/${currentUser.uid}`),
         apiService.get('/requests/pending'),
       ]);
 
       if (donationsRes.status === 'fulfilled') {
         const rawHistory = donationsRes.value.data || [];
-        // ... (Mapping logic remains, though data is empty)
-        setHistory([]); // Set empty for now
+        setHistory(rawHistory);
+
+        // Calculate stats from real history
+        const total = rawHistory.length;
+        // Estimate lives impacted (1 donation can save 3 lives)
+        const lives = total * 3;
+        // Simple eligibility check (3 months since last donation)
+        let daysUntilEligible = 0;
+        if (total > 0) {
+          const lastDate = new Date(rawHistory[0].donationDate); // Assuming sorted or pick latest
+          const diffTime = Math.abs(new Date() - lastDate);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (diffDays < 90) {
+            daysUntilEligible = 90 - diffDays;
+          }
+        }
 
         setStats({
-          livesImpacted: 0,
-          totalDonations: 0,
-          eligibilityDays: 0,
+          livesImpacted: lives,
+          totalDonations: total,
+          eligibilityDays: daysUntilEligible,
         });
       }
 
@@ -49,9 +66,9 @@ const DonorDashboard = () => {
         const mappedRequests = rawRequests.map((req) => ({
           id: req.id,
           bloodGroup: req.bloodGroup,
-          quantity: req.quantity || req.unitsRequired, // Backend uses unitsRequired
+          quantity: req.unitsRequired, // Correct field
           urgency: req.urgency,
-          hospitalName: req.hospitalName || 'Local Hospital', // Backend Request has hospitalName
+          hospitalName: req.hospitalName || 'Patient Request',
         }));
         setRequests(mappedRequests);
       }
@@ -74,12 +91,18 @@ const DonorDashboard = () => {
   };
 
   const handleAcceptRequest = async (requestId) => {
+    if (!currentUser?.uid) {
+      alert('Please login to accept requests');
+      return;
+    }
+
     try {
-      await apiService.patch(`/blood/requests/${requestId}/status`, { status: 'MATCHED' });
-      alert('Request accepted! The hospital will contact you shortly.');
+      await apiService.post(`/donations/donor/${currentUser.uid}/accept/${requestId}`);
+      alert('Request accepted! You will be contacted shortly.');
       fetchDashboardData();
     } catch (error) {
       console.error('Error accepting request:', error);
+      alert(error.response?.data?.message || 'Failed to accept request. It may have already been fulfilled.');
     }
   };
 

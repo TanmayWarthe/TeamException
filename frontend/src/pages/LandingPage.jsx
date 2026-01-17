@@ -1,13 +1,9 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { FiDroplet, FiActivity, FiMapPin, FiShield, FiTrendingUp, FiClock, FiHeart, FiUsers, FiBarChart2 } from 'react-icons/fi'
-import AuthModal from '../components/AuthModal'
 
 function LandingPage() {
   const { currentUser } = useAuth()
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
-  const [authMode, setAuthMode] = useState('login') // 'login' or 'register'
 
   const getDashboardPath = () => {
     if (!currentUser) return '/login'
@@ -93,24 +89,18 @@ function LandingPage() {
                 </Link>
               ) : (
                 <>
-                  <button
-                    onClick={() => {
-                      setAuthMode('login')
-                      setIsAuthModalOpen(true)
-                    }}
+                  <Link
+                    to="/login"
                     className="text-gray-600 hover:text-gray-900 font-medium px-4 py-2 transition-colors duration-200"
                   >
                     Log In
-                  </button>
-                  <button
-                    onClick={() => {
-                      setAuthMode('register')
-                      setIsAuthModalOpen(true)
-                    }}
+                  </Link>
+                  <Link
+                    to="/register"
                     className="btn-primary py-2 px-6 text-sm"
                   >
                     Sign Up
-                  </button>
+                  </Link>
                 </>
               )}
             </div>
@@ -143,15 +133,12 @@ function LandingPage() {
 
           {!currentUser && (
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <button
-                onClick={() => {
-                  setAuthMode('register')
-                  setIsAuthModalOpen(true)
-                }}
+              <Link
+                to="/register"
                 className="btn-primary text-lg px-8 py-3.5 shadow-xl shadow-primary/10"
               >
                 Get Started
-              </button>
+              </Link>
             </div>
           )}
 
@@ -209,27 +196,19 @@ function LandingPage() {
 
           {!currentUser && (
             <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
-              <button
-                onClick={() => {
-                  setAuthMode('register')
-                  setIsAuthModalOpen(true)
-                }}
+              <Link
+                to="/register"
                 className="px-8 py-3.5 bg-primary text-white font-bold rounded-lg shadow-lg hover:bg-primary-dark transition-all duration-300 flex items-center gap-2"
               >
                 <FiUsers className="text-lg" />
                 Join Community
-              </button>
+              </Link>
             </div>
           )}
         </div>
       </section>
 
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        initialMode={authMode}
-      />
+
 
       {/* Footer */}
       <footer className="bg-white border-t border-gray-100 py-12">

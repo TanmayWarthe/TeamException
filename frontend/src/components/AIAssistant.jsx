@@ -16,8 +16,14 @@ const AIAssistant = () => {
         setResponse('')
 
         try {
-            const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
-            const model = genAI.getGenerativeModel({ model: "gemini-pro" })
+            const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+
+            if (!apiKey) {
+                throw new Error('Gemini API key is not configured. Please add VITE_GEMINI_API_KEY to your .env file.')
+            }
+
+            const genAI = new GoogleGenerativeAI(apiKey)
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
 
             // Add context about the app
             const systemContext = "You are a helpful assistant for BloodConnect, a blood donation platform. You help match donors with patients and provide health advice related to blood donation. Keep answers concise."
@@ -28,7 +34,22 @@ const AIAssistant = () => {
             setResponse(text)
         } catch (error) {
             console.error("Gemini Error:", error)
-            setResponse("Sorry, I encountered an error connecting to the AI service. Please check your API key.")
+
+            let errorMessage = "Sorry, I encountered an error. "
+
+            if (error.message?.includes('API key')) {
+                errorMessage += "Please check your API key configuration."
+            } else if (error.message?.includes('404')) {
+                errorMessage += "The AI model is not available. Please contact support."
+            } else if (error.message?.includes('quota')) {
+                errorMessage += "API quota exceeded. Please try again later."
+            } else if (error.message?.includes('SAFETY')) {
+                errorMessage += "Your question was blocked by safety filters. Please rephrase."
+            } else {
+                errorMessage += `Error: ${error.message || 'Unknown error occurred'}`
+            }
+
+            setResponse(errorMessage)
         } finally {
             setLoading(false)
         }

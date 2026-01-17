@@ -1,17 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { FiDroplet, FiTrendingUp, FiTrendingDown, FiUsers, FiActivity, FiAlertTriangle, FiPlus } from 'react-icons/fi';
+import { FiDroplet, FiTrendingUp, FiUsers, FiActivity, FiAlertTriangle, FiPlus, FiEdit, FiCheck, FiX } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api.service';
-
-const HOSPITAL_ID = 1;
 
 const HospitalDashboard = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [inventory, setInventory] = useState([]);
-  const [predictions, setPredictions] = useState([]);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -20,47 +17,62 @@ const HospitalDashboard = () => {
     activeRequests: 0,
   });
 
+  // Modals
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [editingInventory, setEditingInventory] = useState(null);
+
+  // Form states
+  const [inventoryForm, setInventoryForm] = useState({ bloodGroup: 'A+', units: 0 });
+  const [requestForm, setRequestForm] = useState({
+    bloodGroup: 'A+',
+    unitsRequired: 1,
+    urgency: 'NORMAL',
+    patientName: ''
+  });
+
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (currentUser?.uid) {
+      fetchDashboardData();
+    }
+  }, [currentUser]);
 
   const fetchDashboardData = async () => {
+    if (!currentUser?.uid) {
+      console.error('No user logged in');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const [inventoryRes, requestsRes, aiRes] = await Promise.allSettled([
-        apiService.get(`/hospital/inventory/${HOSPITAL_ID}`),
-        apiService.get(`/blood/requests/hospital/${HOSPITAL_ID}`),
-        apiService.get(`/ai/predictions/${HOSPITAL_ID}`),
+      const uid = currentUser.uid;
+      const [inventoryRes, requestsRes] = await Promise.allSettled([
+        apiService.get(`/inventory/hospital/${uid}`),
+        apiService.get(`/requests/pending`),
       ]);
 
       let totalUnits = 0;
       let criticalItems = 0;
+
       if (inventoryRes.status === 'fulfilled') {
         const invData = inventoryRes.value.data.map((inv) => {
-          const isCritical = inv.quantity <= 5;
+          const isCritical = inv.unitsAvailable <= 5;
           if (isCritical) criticalItems++;
-          totalUnits += inv.quantity;
-          return { ...inv, units: inv.quantity, isCritical };
+          totalUnits += inv.unitsAvailable;
+          return { ...inv, isCritical };
         });
         setInventory(invData);
+      } else {
+        setInventory([]);
       }
 
       if (requestsRes.status === 'fulfilled') {
         const rawRequests = requestsRes.value.data || [];
         setRequests(rawRequests);
-        setStats((prev) => ({ ...prev, activeRequests: rawRequests.length }));
-      }
-
-      if (aiRes.status === 'fulfilled') {
-        const rawPredictions = aiRes.value.data || [];
-        const mappedPredictions = rawPredictions.map((pred) => ({
-          id: pred.id,
-          bloodGroup: pred.bloodGroup,
-          riskLevel: pred.predictionType === 'DEMAND_SHORTAGE' ? 'HIGH' : 'MEDIUM',
-          predictionText: pred.recommendation || 'AI prediction available',
-          confidence: pred.confidence || 0,
-        }));
-        setPredictions(mappedPredictions);
+        setStats((prev) => ({ ...prev, activeRequests: rawRequests.filter(r => r.status === 'PENDING').length }));
+      } else {
+        setRequests([]);
       }
 
       setStats((prev) => ({ ...prev, totalUnits, criticalItems }));
@@ -68,19 +80,63 @@ const HospitalDashboard = () => {
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       setInventory([]);
-      setPredictions([]);
       setRequests([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const getTrendIcon = (trend) => {
-    if (trend > 0) return <FiTrendingUp className="text-green-500" />;
-    if (trend < 0) return <FiTrendingDown className="text-red-500" />;
-    return <FiActivity className="text-gray-400" />;
+  const handleUpdateInventory = async (e) => {
+    e.preventDefault();
+    try {
+      await apiService.post(`/inventory/hospital/${currentUser.uid}/update`, null, {
+        params: {
+          bloodGroup: inventoryForm.bloodGroup,
+          units: parseInt(inventoryForm.units)
+        }
+      });
+      setShowInventoryModal(false);
+      setInventoryForm({ bloodGroup: 'A+', units: 0 });
+      fetchDashboardData();
+      alert('Inventory updated successfully!');
+    } catch (error) {
+      console.error('Error updating inventory:', error);
+      alert(error.response?.data?.message || 'Failed to update inventory');
+    }
   };
 
+  const handleCreateRequest = async (e) => {
+    e.preventDefault();
+    try {
+      await apiService.post(`/requests/hospital/${currentUser.uid}`, {
+        bloodGroup: requestForm.bloodGroup,
+        unitsRequired: parseInt(requestForm.unitsRequired),
+        urgency: requestForm.urgency,
+        patientName: requestForm.patientName || 'Hospital Request'
+      });
+      setShowRequestModal(false);
+      setRequestForm({ bloodGroup: 'A+', unitsRequired: 1, urgency: 'NORMAL', patientName: '' });
+      fetchDashboardData();
+      alert('Blood request created successfully!');
+    } catch (error) {
+      console.error('Error creating request:', error);
+      alert('Failed to create request');
+    }
+  };
+
+  const handleAcceptRequest = async (requestId) => {
+    try {
+      await apiService.post(`/donations/hospital/${currentUser.uid}/accept/${requestId}`);
+      alert('Request fulfilled successfully!');
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error accepting request:', error);
+      alert(error.response?.data?.message || 'Failed to fulfill request');
+    }
+  };
+
+  const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  const urgencyLevels = ['NORMAL', 'CRITICAL', 'EMERGENCY'];
 
   if (loading) {
     return (
@@ -98,173 +154,286 @@ const HospitalDashboard = () => {
   return (
     <Layout>
       <div className="bg-bg-soft min-h-screen p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-3xl font-display font-bold text-gray-900">Hospital Dashboard</h1>
-              <p className="text-gray-600 mt-1">
-                Overview for {currentUser?.hospitalName || currentUser?.email || 'Hospital'}
-              </p>
-            </div>
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-display font-bold text-gray-900">Hospital Dashboard</h1>
+            <p className="text-gray-500 mt-1">Manage inventory and blood requests</p>
+          </div>
+          <div className="flex gap-3">
             <button
-              onClick={() => navigate('/hospital/requests')}
+              onClick={() => setShowInventoryModal(true)}
               className="btn-primary flex items-center gap-2"
             >
-              <FiPlus />
-              <span>Manage Requests</span>
+              <FiPlus /> Update Inventory
+            </button>
+            <button
+              onClick={() => setShowRequestModal(true)}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+            >
+              <FiDroplet /> Create Request
             </button>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            <StatCard
-              icon={<FiDroplet className="text-2xl text-blue-600" />}
-              label="Total Blood Units"
-              value={stats.totalUnits}
-              unit="units in stock"
-              color="blue"
-            />
-            <StatCard
-              icon={<FiAlertTriangle className="text-2xl text-red-600" />}
-              label="Critical Inventory"
-              value={stats.criticalItems}
-              unit="blood types low"
-              color="red"
-            />
-            <StatCard
-              icon={<FiActivity className="text-2xl text-yellow-600" />}
-              label="Active Requests"
-              value={stats.activeRequests}
-              unit="requests pending"
-              color="yellow"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <div className="card-minimal p-6">
-                <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-                  <h2 className="text-lg font-display font-semibold text-gray-900">Inventory Status</h2>
-                  <span className="text-sm text-primary font-medium cursor-pointer hover:underline">View All</span>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {inventory.length > 0 ? inventory.map((item) => (
-                    <div key={item.bloodGroup} className={`rounded-xl p-4 border transition-all duration-200 hover:shadow-sm ${item.isCritical ? 'bg-red-50 border-red-100' : 'bg-white border-gray-200'}`}>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="font-display font-bold text-lg text-gray-900">{item.bloodGroup}</span>
-                        {getTrendIcon(item.trend)}
-                      </div>
-                      <div className="flex items-baseline gap-1">
-                        <p className={`text-2xl font-bold ${item.isCritical ? 'text-red-700' : 'text-gray-900'}`}>{item.units}</p>
-                        <p className="text-xs text-gray-500">units</p>
-                      </div>
-
-                      {item.isCritical && (
-                        <div className="flex items-center gap-1 mt-2 text-xs font-semibold text-red-600">
-                          <FiAlertTriangle /> Low Stock
-                        </div>
-                      )}
-                    </div>
-                  )) : (
-                    <div className="col-span-full text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                      <FiDroplet className="text-4xl text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-500 font-medium">No inventory data available</p>
-                    </div>
-                  )}
-                </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500 font-medium">Total Blood Units</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalUnits}</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+                <FiDroplet className="text-2xl text-blue-600" />
               </div>
             </div>
+          </div>
 
-            <div className="lg:col-span-1">
-              <div className="card-minimal p-6 h-full">
-                <h2 className="text-lg font-display font-semibold text-gray-900 mb-6 border-b border-gray-100 pb-4">Active Requests</h2>
-                <ul className="space-y-4">
-                  {requests.length > 0 ? requests.map((req) => (
-                    <li key={req.id} className="border-b border-gray-100 pb-4 last:border-b-0 last:pb-0">
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="font-semibold text-gray-900 text-sm">{req.quantity} units of {req.bloodGroup}</span>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${req.urgency === 'EMERGENCY'
-                            ? 'bg-red-50 text-red-700 border-red-100'
-                            : 'bg-blue-50 text-blue-700 border-blue-100'
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500 font-medium">Critical Items</p>
+                <p className="text-3xl font-bold text-red-600 mt-2">{stats.criticalItems}</p>
+              </div>
+              <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
+                <FiAlertTriangle className="text-2xl text-red-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500 font-medium">Active Requests</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.activeRequests}</p>
+              </div>
+              <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
+                <FiActivity className="text-2xl text-green-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Inventory Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8">
+          <div className="p-6 border-b border-gray-100">
+            <h2 className="text-xl font-bold text-gray-900">Blood Inventory</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Blood Group</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Units Available</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {inventory.length === 0 ? (
+                  <tr>
+                    <td colSpan="3" className="px-6 py-8 text-center text-gray-500">
+                      No inventory data. Click "Update Inventory" to add blood units.
+                    </td>
+                  </tr>
+                ) : (
+                  inventory.map((item) => (
+                    <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 font-medium text-gray-900">{item.bloodGroup}</td>
+                      <td className="px-6 py-4 text-gray-700">{item.unitsAvailable} units</td>
+                      <td className="px-6 py-4">
+                        {item.isCritical ? (
+                          <span className="px-3 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">
+                            Critical
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                            Available
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Requests Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="p-6 border-b border-gray-100">
+            <h2 className="text-xl font-bold text-gray-900">Blood Requests</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Blood Group</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Units</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Urgency</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {requests.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                      No requests yet.
+                    </td>
+                  </tr>
+                ) : (
+                  requests.map((req) => (
+                    <tr key={req.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 font-medium text-gray-900">{req.patientName || 'N/A'}</td>
+                      <td className="px-6 py-4 text-gray-700">{req.bloodGroup}</td>
+                      <td className="px-6 py-4 text-gray-700">{req.unitsRequired}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 text-xs font-medium rounded-full ${req.urgency === 'EMERGENCY' ? 'bg-red-100 text-red-700' :
+                          req.urgency === 'CRITICAL' ? 'bg-orange-100 text-orange-700' :
+                            'bg-blue-100 text-blue-700'
                           }`}>
                           {req.urgency}
                         </span>
-                      </div>
-                      <div className="flex items-center justify-between mt-2">
-                        <p className="text-xs text-gray-500">Status: <span className="font-medium text-gray-700">{req.status}</span></p>
-                        <button className="text-xs font-medium text-primary hover:text-primary-dark hover:underline">Details</button>
-                      </div>
-                    </li>
-                  )) : (
-                    <div className="text-center py-10">
-                      <p className="text-gray-400 text-sm">No active blood requests.</p>
-                    </div>
-                  )}
-                </ul>
-              </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 text-xs font-medium rounded-full ${req.status === 'FULFILLED' ? 'bg-green-100 text-green-700' :
+                          req.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                          {req.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Inventory Modal */}
+        {showInventoryModal && (
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-md w-full p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Update Inventory</h3>
+              <form onSubmit={handleUpdateInventory}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Blood Group</label>
+                  <select
+                    value={inventoryForm.bloodGroup}
+                    onChange={(e) => setInventoryForm({ ...inventoryForm, bloodGroup: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    {bloodGroups.map(bg => (
+                      <option key={bg} value={bg}>{bg}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Units to Add</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={inventoryForm.units}
+                    onChange={(e) => setInventoryForm({ ...inventoryForm, units: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowInventoryModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 btn-primary"
+                  >
+                    Update
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
+        )}
 
-          {predictions.length > 0 && (
-            <div className="mt-8 card-minimal p-6">
-              <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-4">
-                <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
-                  <FiActivity className="text-xl" />
+        {/* Request Modal */}
+        {showRequestModal && (
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-md w-full p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Create Blood Request</h3>
+              <form onSubmit={handleCreateRequest}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Blood Group</label>
+                  <select
+                    value={requestForm.bloodGroup}
+                    onChange={(e) => setRequestForm({ ...requestForm, bloodGroup: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    {bloodGroups.map(bg => (
+                      <option key={bg} value={bg}>{bg}</option>
+                    ))}
+                  </select>
                 </div>
-                <div>
-                  <h2 className="text-lg font-display font-semibold text-gray-900">AI Predictions</h2>
-                  <p className="text-sm text-gray-500">Inventory optimization insights</p>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Units Required</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={requestForm.unitsRequired}
+                    onChange={(e) => setRequestForm({ ...requestForm, unitsRequired: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {predictions.map((pred) => (
-                  <div key={pred.id} className={`rounded-xl p-5 border ${pred.riskLevel === 'HIGH' ? 'bg-orange-50/50 border-orange-100' : 'bg-yellow-50/50 border-yellow-100'}`}>
-                    <div className="flex items-start justify-between mb-2">
-                      <span className="font-bold text-gray-800 text-lg">{pred.bloodGroup}</span>
-                      <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${pred.riskLevel === 'HIGH' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {pred.riskLevel} Risk
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-2 mb-3 leading-relaxed">{pred.predictionText}</p>
-                    <div className="flex items-center gap-2 pt-2 border-t border-black/5">
-                      <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-primary" style={{ width: `${pred.confidence * 100}%` }}></div>
-                      </div>
-                      <span className="text-xs font-medium text-gray-500">{(pred.confidence * 100).toFixed(0)}% Conf.</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Urgency</label>
+                  <select
+                    value={requestForm.urgency}
+                    onChange={(e) => setRequestForm({ ...requestForm, urgency: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    {urgencyLevels.map(level => (
+                      <option key={level} value={level}>{level}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Patient Name (Optional)</label>
+                  <input
+                    type="text"
+                    value={requestForm.patientName}
+                    onChange={(e) => setRequestForm({ ...requestForm, patientName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Enter patient name"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowRequestModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                  >
+                    Create Request
+                  </button>
+                </div>
+              </form>
             </div>
-          )}
-
-        </div>
+          </div>
+        )}
       </div>
     </Layout>
-  );
-};
-
-
-const StatCard = ({ icon, label, value, unit, color }) => {
-  const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600 border-blue-100',
-    yellow: 'bg-yellow-50 text-yellow-600 border-yellow-100',
-    green: 'bg-green-50 text-green-600 border-green-100',
-    red: 'bg-red-50 text-red-600 border-red-100',
-  };
-
-  return (
-    <div className="card-minimal p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
-      <div className={`p-3 rounded-xl border ${colorClasses[color]}`}>{icon}</div>
-      <div>
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{label}</p>
-        <div className="flex items-baseline gap-2">
-          <p className="text-3xl font-display font-bold text-gray-900">{value}</p>
-          <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">{unit}</span>
-        </div>
-      </div>
-    </div>
   );
 };
 

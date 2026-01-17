@@ -1,17 +1,31 @@
 import React, { useState, useEffect } from 'react'
+import { useAuth } from '../contexts/AuthContext'
+import { apiService } from '../services/api.service' // Also needed apiService import which was missing
 import Layout from '../components/Layout'
 import { FiClock, FiActivity, FiFilter } from 'react-icons/fi'
 
 const RequestHistory = () => {
+    const { currentUser } = useAuth() // Need to import useAuth
     const [requests, setRequests] = useState([])
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        // Mock data
-        setRequests([
-            { id: 1, date: '2024-01-15', bloodGroup: 'B+', quantity: 2, urgency: 'EMERGENCY', status: 'PENDING' },
-            { id: 2, date: '2023-11-20', bloodGroup: 'O-', quantity: 1, urgency: 'NORMAL', status: 'FULFILLED' },
-        ])
-    }, [])
+        const fetchRequests = async () => {
+            if (!currentUser?.uid) return
+
+            setLoading(true)
+            try {
+                const response = await apiService.get(`/requests/my/${currentUser.uid}`)
+                setRequests(response.data)
+            } catch (error) {
+                console.error('Error fetching request history:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchRequests()
+    }, [currentUser])
 
     return (
         <Layout>
@@ -45,27 +59,27 @@ const RequestHistory = () => {
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
                                                 <FiClock className="text-gray-400" />
-                                                <span className="font-semibold text-gray-900">{new Date(req.date).toLocaleDateString()}</span>
+                                                <span className="font-semibold text-gray-900">{new Date(req.createdAt).toLocaleDateString()}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className="font-display font-bold text-lg text-gray-800">{req.bloodGroup}</span>
                                         </td>
                                         <td className="px-6 py-4 text-gray-600">
-                                            {req.quantity} Unit{req.quantity > 1 ? 's' : ''}
+                                            {req.unitsRequired} Unit{req.unitsRequired > 1 ? 's' : ''}
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2.5 py-1 rounded text-xs font-bold border ${req.urgency === 'EMERGENCY'
-                                                    ? 'bg-red-50 text-red-700 border-red-100'
-                                                    : 'bg-blue-50 text-blue-700 border-blue-100'
+                                                ? 'bg-red-50 text-red-700 border-red-100'
+                                                : 'bg-blue-50 text-blue-700 border-blue-100'
                                                 }`}>
                                                 {req.urgency}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${req.status === 'PENDING' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
-                                                    req.status === 'FULFILLED' ? 'bg-green-50 text-green-700 border-green-100' :
-                                                        'bg-gray-50 text-gray-600 border-gray-200'
+                                                req.status === 'FULFILLED' ? 'bg-green-50 text-green-700 border-green-100' :
+                                                    'bg-gray-50 text-gray-600 border-gray-200'
                                                 }`}>
                                                 {req.status}
                                             </span>

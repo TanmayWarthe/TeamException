@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
 
           // We import apiService dynamically or assume it handles the header if we set it in localStorage
           // But here we need to make a call. We'll use fetch for simplicity to avoid circular dep if apiService imports AuthContext
-          await fetch('http://localhost:8080/api/users/sync', {
+          const response = await fetch('http://localhost:8080/api/users/sync', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -46,6 +46,10 @@ export function AuthProvider({ children }) {
               role: role.toUpperCase()
             })
           });
+
+          if (!response.ok) {
+            throw new Error(`User sync failed: ${response.status}`);
+          }
         } catch (error) {
           console.error("Backend sync failed", error);
           // Verify if we should throw or just log

@@ -285,7 +285,7 @@ const RequestItem = ({ request }) => {
           <div className="flex items-center gap-3 mb-2">
             <span className="text-xl font-display font-bold text-gray-900">{request.bloodGroup}</span>
             <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200">
-              {request.quantity} Unit{request.quantity > 1 ? 's' : ''}
+              {request.unitsRequired} Unit{request.unitsRequired > 1 ? 's' : ''}
             </span>
           </div>
           <p className="text-xs text-gray-500 flex items-center gap-2">

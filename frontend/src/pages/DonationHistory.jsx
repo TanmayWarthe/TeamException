@@ -1,22 +1,32 @@
 import React, { useState, useEffect } from 'react'
+import { useAuth } from '../contexts/AuthContext'
 import Layout from '../components/Layout'
 import { FiClock, FiMapPin, FiCheckCircle, FiDroplet } from 'react-icons/fi'
 import { apiService } from '../services/api.service'
 
 const DonationHistory = () => {
+    const { currentUser } = useAuth() // Need to import useAuth
     const [history, setHistory] = useState([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        // Determine user role and fetch appropriate history - mocking for now
-        // apiService.get('/history')
-        setLoading(false)
-        setHistory([
-            { id: 1, date: '2023-12-01', location: 'City Hospital', units: 1, bloodGroup: 'A+', status: 'Completed' },
-            { id: 2, date: '2023-08-15', location: 'Red Cross Camp', units: 1, bloodGroup: 'A+', status: 'Completed' },
-            { id: 3, date: '2023-04-20', location: 'Medical College', units: 1, bloodGroup: 'A+', status: 'Completed' },
-        ])
-    }, [])
+        const fetchHistory = async () => {
+            if (!currentUser?.uid) return
+
+            setLoading(true)
+            try {
+                // Determine if user is donor or hospital (for now assuming donor page for basic donors)
+                const response = await apiService.get(`/donations/donor/${currentUser.uid}`)
+                setHistory(response.data)
+            } catch (error) {
+                console.error('Error fetching donation history:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchHistory()
+    }, [currentUser])
 
     return (
         <Layout>
@@ -42,13 +52,13 @@ const DonationHistory = () => {
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
                                                 <FiClock className="text-gray-400" />
-                                                <span className="font-semibold text-gray-900">{new Date(item.date).toLocaleDateString()}</span>
+                                                <span className="font-semibold text-gray-900">{new Date(item.donationDate).toLocaleDateString()}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-gray-600">
                                             <div className="flex items-center gap-2">
                                                 <FiMapPin className="text-gray-400" />
-                                                {item.location}
+                                                {item.request?.hospitalName || 'Direct Donation'}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">

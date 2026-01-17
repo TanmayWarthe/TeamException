@@ -1,6 +1,7 @@
 package com.bloodconnect.controller;
 
 import com.bloodconnect.model.BloodRequest;
+import com.bloodconnect.model.BloodRequest.RequestStatus;
 import com.bloodconnect.service.BloodRequestService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -29,5 +30,28 @@ public class BloodRequestController {
     @GetMapping("/my/{uid}")
     public ResponseEntity<List<BloodRequest>> getMyRequests(@PathVariable String uid) {
         return ResponseEntity.ok(requestService.getMyRequests(uid));
+    }
+
+    @PostMapping("/hospital/{uid}")
+    public ResponseEntity<BloodRequest> createHospitalRequest(
+            @PathVariable String uid,
+            @RequestBody BloodRequest request) {
+        BloodRequest created = requestService.createHospitalRequest(uid, request);
+        return ResponseEntity.ok(created);
+    }
+
+    @GetMapping("/hospital/{uid}")
+    public ResponseEntity<List<BloodRequest>> getHospitalRequests(@PathVariable String uid) {
+        List<BloodRequest> requests = requestService.findRequestsByHospital(uid);
+        return ResponseEntity.ok(requests);
+    }
+
+    @PutMapping("/{requestId}/status")
+    public ResponseEntity<BloodRequest> updateRequestStatus(
+            @PathVariable Long requestId,
+            @RequestParam String status) {
+        RequestStatus requestStatus = RequestStatus.valueOf(status.toUpperCase());
+        BloodRequest updated = requestService.updateRequestStatus(requestId, requestStatus);
+        return ResponseEntity.ok(updated);
     }
 }

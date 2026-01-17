@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "hospitals")
 @Data
@@ -24,4 +27,7 @@ public class Hospital {
 
     private Double latitude;
     private Double longitude;
+
+    @OneToMany(mappedBy = "hospital", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Donation> donations = new ArrayList<>();
 }

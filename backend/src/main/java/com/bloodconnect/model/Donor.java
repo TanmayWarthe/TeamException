@@ -5,6 +5,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "donors")
@@ -21,19 +23,23 @@ public class Donor {
 
     private String name;
     private String bloodGroup; // A+, B-, etc.
+    private String rhFactor; // Positive, Negative
     private LocalDate dob;
     private String gender;
     private String phone;
     private String address;
-    
+
     // For Location (Latitude/Longitude)
     private Double latitude;
     private Double longitude;
 
     private LocalDate lastDonationDate;
-    
+
     @Enumerated(EnumType.STRING)
     private AvailabilityStatus availabilityStatus = AvailabilityStatus.AVAILABLE;
+
+    @OneToMany(mappedBy = "donor", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Donation> donations = new ArrayList<>();
 
     public enum AvailabilityStatus {
         AVAILABLE, BUSY, UNAVAILABLE
