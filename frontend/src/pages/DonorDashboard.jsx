@@ -13,6 +13,7 @@ const DonorDashboard = () => {
   const [requests, setRequests] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [stats, setStats] = useState({
     livesImpacted: 0,
     totalDonations: 0,
@@ -42,6 +43,10 @@ const DonorDashboard = () => {
         const profile = donorRes.value.data;
         setDonorProfile(profile);
         setAvailability(profile.availabilityStatus?.toLowerCase() || 'available');
+
+      } else {
+        // Profile not found - show message
+
       }
 
       if (donationsRes.status === 'fulfilled') {
@@ -143,6 +148,8 @@ const DonorDashboard = () => {
           <p className="text-gray-600">
             Welcome back, {currentUser?.name || currentUser?.email || 'Donor'}!
           </p>
+
+
 
           <div className="mt-6 card-minimal p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex items-center gap-4">

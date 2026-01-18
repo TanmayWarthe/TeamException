@@ -297,7 +297,6 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
     setError('')
     setFieldErrors({})
   }
-
   const handleRegisterSubmit = async (e) => {
     e.preventDefault()
 
@@ -307,35 +306,61 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
     setError('')
 
     try {
-      const userData = {
-        name: formData.name,
-        role: formData.role,
-        phone: formData.phone
-      }
+      // 1. Create Firebase Auth account and sync basic user data
+      const userCredential = await signup(formData.email, formData.password, formData.name, formData.role)
+      const uid = userCredential.user.uid
 
-      if (formData.role === 'donor' || formData.role === 'patient') {
-        userData.bloodType = formData.bloodType
-        userData.dateOfBirth = formData.dateOfBirth
-        if (formData.role === 'donor' && formData.rhFactor) {
-          userData.rhFactor = formData.rhFactor
+      // 2. Register role-specific profile data
+      let endpoint = ''
+      let profileData = {}
+
+      if (formData.role === 'donor') {
+        endpoint = `http://localhost:8080/api/donors/register?uid=${uid}`
+        profileData = {
+          name: formData.name,
+          phone: formData.phone,
+          bloodGroup: formData.bloodType,
+          dateOfBirth: formData.dateOfBirth,
+          address: formData.address,
+          city: formData.city,
+          state: formData.state,
+          weight: '0', // Default
+          height: '0' // Default
         }
-        if (formData.role === 'patient' && formData.disease) {
-          userData.disease = formData.disease
+      } else if (formData.role === 'patient') {
+        endpoint = `http://localhost:8080/api/patients/register?uid=${uid}`
+        profileData = {
+          name: formData.name,
+          phoneNumber: formData.phone,
+          bloodGroup: formData.bloodType,
+          dateOfBirth: formData.dateOfBirth,
+          address: formData.address,
+          city: formData.city,
+          state: formData.state,
+          medicalConditions: formData.disease
         }
-        if (formData.address) userData.address = formData.address
-        if (formData.city) userData.city = formData.city
-        if (formData.state) userData.state = formData.state
+      } else if (formData.role === 'hospital') {
+        endpoint = `http://localhost:8080/api/hospitals/register?uid=${uid}`
+        profileData = {
+          hospitalName: formData.hospitalName,
+          contactNumber: formData.phone,
+          licenseNumber: formData.licenseNumber,
+          address: formData.address,
+          city: formData.city,
+          state: formData.state
+        }
       }
 
-      if (formData.role === 'hospital') {
-        userData.hospitalName = formData.hospitalName
-        userData.licenseNumber = formData.licenseNumber
-        userData.address = formData.address
-        if (formData.city) userData.city = formData.city
-        if (formData.state) userData.state = formData.state
+      // Send detailed profile to backend
+      if (endpoint) {
+        await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(profileData)
+        })
       }
-
-      await signup(formData.email, formData.password, userData)
 
       handleClose()
       navigateToDashboard(formData.role)
@@ -345,8 +370,10 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
         setError('Email already in use')
       } else if (err.code === 'auth/weak-password') {
         setError('Password is too weak')
+      } else if (err.code === 'auth/invalid-value-(display-name)') {
+        setError('Invalid Name provided')
       } else {
-        setError('Registration failed. Please try again')
+        setError('Registration failed: ' + err.message)
       }
     } finally {
       setLoading(false)
