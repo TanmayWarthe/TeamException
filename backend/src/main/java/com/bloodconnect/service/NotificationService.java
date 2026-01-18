@@ -1,0 +1,84 @@
+package com.bloodconnect.service;
+
+import com.bloodconnect.model.Notification;
+import com.bloodconnect.model.User;
+import com.bloodconnect.repository.NotificationRepository;
+import com.bloodconnect.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+public class NotificationService {
+
+    @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    /**
+     * Create a new notification for a user
+     */
+    @Transactional
+    public Notification createNotification(User recipient, String type, String message, Long relatedRequestId) {
+        Notification notification = new Notification(recipient, type, message, relatedRequestId);
+        return notificationRepository.save(notification);
+    }
+
+    /**
+     * Get all notifications for a user by Firebase UID
+     */
+    public List<Notification> getAllNotifications(String firebaseUid) {
+        User user = userRepository.findByFirebaseUid(firebaseUid)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return notificationRepository.findByRecipientOrderByCreatedAtDesc(user);
+    }
+
+    /**
+     * Get unread notifications for a user
+     */
+    public List<Notification> getUnreadNotifications(String firebaseUid) {
+        User user = userRepository.findByFirebaseUid(firebaseUid)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return notificationRepository.findByRecipientAndIsReadOrderByCreatedAtDesc(user, false);
+    }
+
+    /**
+     * Get unread notification count
+     */
+    public Long getUnreadCount(String firebaseUid) {
+        User user = userRepository.findByFirebaseUid(firebaseUid)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return notificationRepository.countByRecipientAndIsRead(user, false);
+    }
+
+    /**
+     * Mark a notification as read
+     */
+    @Transactional
+    public Notification markAsRead(Long notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new RuntimeException("Notification not found"));
+        notification.setIsRead(true);
+        return notificationRepository.save(notification);
+    }
+
+    /**
+     * Mark all notifications as read for a user
+     */
+    @Transactional
+    public void markAllAsRead(String firebaseUid) {
+        User user = userRepository.findByFirebaseUid(firebaseUid)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        List<Notification> unreadNotifications = notificationRepository
+                .findByRecipientAndIsReadOrderByCreatedAtDesc(user, false);
+
+        for (Notification notification : unreadNotifications) {
+            notification.setIsRead(true);
+            notificationRepository.save(notification);
+        }
+    }
+}

@@ -37,6 +37,9 @@ public class DonationService {
         @Autowired
         private AppointmentService appointmentService;
 
+        @Autowired
+        private NotificationService notificationService;
+
         /**
          * Donor accepts a blood request - Creates SCHEDULED donation with appointment
          */
@@ -57,24 +60,31 @@ public class DonationService {
                         throw new RuntimeException("Request already " + request.getStatus());
                 }
 
-                // Get hospital for appointment
+                // Try to find hospital for appointment (optional)
                 Hospital hospital = null;
-                if (request.getHospitalName() != null && !request.getHospitalName().isEmpty()) {
-                        // Try to find hospital by name (simplified - in production use better matching)
-                        hospital = hospitalRepository.findAll().stream()
-                                        .filter(h -> h.getHospitalName().equalsIgnoreCase(request.getHospitalName()))
-                                        .findFirst()
-                                        .orElse(null);
-                }
-
-                // Create appointment (scheduled for next day)
                 Appointment appointment = null;
-                if (hospital != null) {
-                        appointment = appointmentService.createAppointment(
-                                        donor,
-                                        hospital,
-                                        LocalDateTime.now().plusDays(1),
-                                        "Blood donation for request #" + requestId);
+
+                if (request.getHospitalName() != null && !request.getHospitalName().isEmpty()) {
+                        try {
+                                // Try to find hospital by name
+                                hospital = hospitalRepository.findAll().stream()
+                                                .filter(h -> h.getHospitalName()
+                                                                .equalsIgnoreCase(request.getHospitalName()))
+                                                .findFirst()
+                                                .orElse(null);
+
+                                // Create appointment if hospital found
+                                if (hospital != null) {
+                                        appointment = appointmentService.createAppointment(
+                                                        donor,
+                                                        hospital,
+                                                        LocalDateTime.now().plusDays(1),
+                                                        "Blood donation for request #" + requestId);
+                                }
+                        } catch (Exception e) {
+                                // Log error but continue without appointment
+                                System.err.println("Could not create appointment: " + e.getMessage());
+                        }
                 }
 
                 // Create donation record with SCHEDULED status
@@ -85,13 +95,41 @@ public class DonationService {
                 donation.setUnits(request.getUnitsRequired());
                 donation.setDonationType(DonationType.DIRECT_TO_PATIENT);
                 donation.setStatus(DonationStatus.SCHEDULED); // ✅ Not completed yet!
-                donation.setAppointment(appointment);
+                donation.setAppointment(appointment); // Can be null
 
                 // Update request status to MATCHED (not ACCEPTED yet)
                 request.setStatus(RequestStatus.MATCHED);
                 requestRepository.save(request);
 
-                return donationRepository.save(donation);
+                Donation savedDonation = donationRepository.save(donation);
+
+                // 🔔 NOTIFY: Send notifications to patient and hospitals
+                try {
+                        // Notify patient
+                        if (request.getRequester() != null) {
+                                notificationService.createNotification(
+                                                request.getRequester(),
+                                                "REQUEST_ACCEPTED",
+                                                "Donor " + donor.getName() + " accepted your " + request.getBloodGroup()
+                                                                + " request!",
+                                                request.getId());
+                        }
+
+                        // Notify all hospitals
+                        java.util.List<Hospital> allHospitals = hospitalRepository.findAll();
+                        for (Hospital h : allHospitals) {
+                                notificationService.createNotification(
+                                                h.getUser(),
+                                                "REQUEST_ACCEPTED",
+                                                "Donor accepted " + request.getBloodGroup()
+                                                                + " request - Ready for collection",
+                                                request.getId());
+                        }
+                } catch (Exception e) {
+                        System.err.println("Failed to send notifications: " + e.getMessage());
+                }
+
+                return savedDonation;
         }
 
         /**
@@ -138,6 +176,37 @@ public class DonationService {
                 // Deduct from hospital inventory (last, so rollback works if this fails)
                 inventoryService.updateInventory(hospitalUid, request.getBloodGroup(),
                                 -request.getUnitsRequired());
+
+                // \ud83d\udd14 NOTIFY: Send notifications to patient and donor (if exists)
+                try {
+                        // Notify patient
+                        if (request.getRequester() != null) {
+                                notificationService.createNotification(
+                                                request.getRequester(),
+                                                "REQUEST_FULFILLED",
+                                                "Your " + request.getBloodGroup() + " request has been fulfilled by "
+                                                                + hospital.getHospitalName(),
+                                                request.getId());
+                        }
+
+                        // Notify donor if this request was matched to a donor
+                        Optional<Donation> donorDonation = donationRepository.findAll().stream()
+                                        .filter(d -> d.getRequest() != null && d.getRequest().getId().equals(requestId)
+                                                        && d.getDonor() != null)
+                                        .findFirst();
+
+                        if (donorDonation.isPresent() && donorDonation.get().getDonor() != null) {
+                                notificationService.createNotification(
+                                                donorDonation.get().getDonor().getUser(),
+                                                "REQUEST_FULFILLED",
+                                                "Your donation for " + request.getBloodGroup()
+                                                                + " request has been collected by "
+                                                                + hospital.getHospitalName(),
+                                                request.getId());
+                        }
+                } catch (Exception e) {
+                        System.err.println("Failed to send notifications: " + e.getMessage());
+                }
 
                 return donation;
         }

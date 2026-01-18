@@ -2,55 +2,92 @@ import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { FiUser, FiMail, FiPhone, FiMapPin, FiCalendar, FiDroplet, FiEdit2, FiSave, FiX, FiCamera, FiShield, FiActivity } from 'react-icons/fi'
 import { useAuth } from '../contexts/AuthContext'
+import { apiService } from '../services/api.service'
 
 const Profile = () => {
   const { currentUser } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [profileData, setProfileData] = useState(null)
+  const [editData, setEditData] = useState({})
 
-  const userRole = localStorage.getItem('userRole') || 'donor'
+  const userRole = currentUser?.role || 'donor'
 
   useEffect(() => {
-    // Fetch user profile data
-    const fetchProfile = async () => {
-      setLoading(true)
-      try {
-        // Simulate API call
-        const mockProfile = {
-          fullName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User',
-          email: currentUser?.email || 'user@example.com',
-          phone: '+1 (555) 123-4567',
-          bloodType: 'O+',
-          dateOfBirth: '1990-05-15',
-          address: '123 Medical Plaza',
-          city: 'New York',
-          state: 'NY',
-          zipCode: '10001',
-          emergencyContact: '+1 (555) 987-6543',
-          emergencyContactName: 'John Doe',
-          medicalConditions: 'None',
-          allergies: 'None',
-          lastDonation: '2024-01-15',
-          totalDonations: 12,
-          weight: '70 kg',
-          height: '175 cm',
-          isVerified: true
-        }
-        setProfileData(mockProfile)
-      } catch (error) {
-        console.error('Error fetching profile:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    if (currentUser) {
-      fetchProfile()
-    }
+    fetchProfile()
   }, [currentUser])
 
-  const [editData, setEditData] = useState({})
+  const fetchProfile = async () => {
+    if (!currentUser?.uid) return
+
+    setLoading(true)
+    try {
+      let endpoint = ''
+      if (userRole === 'donor') {
+        endpoint = `/donors/${currentUser.uid}`
+      } else if (userRole === 'patient') {
+        endpoint = `/patients/${currentUser.uid}`
+      } else if (userRole === 'hospital') {
+        endpoint = `/hospitals/${currentUser.uid}`
+      }
+
+      const response = await apiService.get(endpoint)
+      const profile = response.data
+
+      // Transform backend data to frontend format
+      const transformedProfile = {
+        fullName: profile.name || currentUser.displayName || currentUser.email?.split('@')[0] || '',
+        email: currentUser.email || '',
+        phone: profile.phoneNumber || profile.contactNumber || '',
+        bloodType: profile.bloodGroup || '',
+        dateOfBirth: profile.dateOfBirth || '',
+        address: profile.address || '',
+        city: profile.city || '',
+        state: profile.state || '',
+        zipCode: profile.zipCode || '',
+        emergencyContact: profile.emergencyContact || '',
+        emergencyContactName: profile.emergencyContactName || '',
+        medicalConditions: profile.medicalConditions || '',
+        allergies: profile.allergies || '',
+        weight: profile.weight || '',
+        height: profile.height || '',
+        // Donor specific
+        lastDonation: profile.lastDonationDate || null,
+        totalDonations: profile.totalDonations || 0,
+        // Hospital specific
+        hospitalName: profile.hospitalName || '',
+        licenseNumber: profile.licenseNumber || '',
+        // Patient specific
+        patientId: profile.id || null,
+      }
+
+      setProfileData(transformedProfile)
+    } catch (error) {
+      console.error('Error fetching profile:', error)
+      // If profile doesn't exist, set empty profile
+      setProfileData({
+        fullName: currentUser.displayName || currentUser.email?.split('@')[0] || '',
+        email: currentUser.email || '',
+        phone: '',
+        bloodType: '',
+        dateOfBirth: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        emergencyContact: '',
+        emergencyContactName: '',
+        medicalConditions: '',
+        allergies: '',
+        weight: '',
+        height: '',
+        hospitalName: '',
+        licenseNumber: '',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleEdit = () => {
     setIsEditing(true)
@@ -62,14 +99,67 @@ const Profile = () => {
   }
 
   const handleSave = async () => {
+    if (!currentUser?.uid) return
+
     setLoading(true)
     try {
-      // Simulate API update
-      await new Promise(resolve => setTimeout(resolve, 800))
+      let endpoint = ''
+      let payload = {}
+
+      if (userRole === 'donor') {
+        endpoint = `/donors/${currentUser.uid}`
+        payload = {
+          name: editData.fullName,
+          phoneNumber: editData.phone,
+          bloodGroup: editData.bloodType,
+          dateOfBirth: editData.dateOfBirth,
+          address: editData.address,
+          city: editData.city,
+          state: editData.state,
+          zipCode: editData.zipCode,
+          emergencyContact: editData.emergencyContact,
+          emergencyContactName: editData.emergencyContactName,
+          medicalConditions: editData.medicalConditions,
+          allergies: editData.allergies,
+          weight: editData.weight,
+          height: editData.height,
+        }
+      } else if (userRole === 'patient') {
+        endpoint = `/patients/${currentUser.uid}`
+        payload = {
+          name: editData.fullName,
+          phoneNumber: editData.phone,
+          bloodGroup: editData.bloodType,
+          dateOfBirth: editData.dateOfBirth,
+          address: editData.address,
+          city: editData.city,
+          state: editData.state,
+          zipCode: editData.zipCode,
+          emergencyContact: editData.emergencyContact,
+          emergencyContactName: editData.emergencyContactName,
+          medicalConditions: editData.medicalConditions,
+          allergies: editData.allergies,
+        }
+      } else if (userRole === 'hospital') {
+        endpoint = `/hospitals/${currentUser.uid}`
+        payload = {
+          hospitalName: editData.hospitalName,
+          contactNumber: editData.phone,
+          address: editData.address,
+          city: editData.city,
+          state: editData.state,
+          zipCode: editData.zipCode,
+          licenseNumber: editData.licenseNumber,
+        }
+      }
+
+      await apiService.put(endpoint, payload)
       setProfileData({ ...editData })
       setIsEditing(false)
+      alert('Profile updated successfully!')
     } catch (error) {
       console.error('Error updating profile:', error)
+      alert('Failed to update profile. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -110,23 +200,16 @@ const Profile = () => {
                       {profileData?.fullName?.charAt(0).toUpperCase() || 'U'}
                     </span>
                   </div>
-                  <button className="absolute bottom-0 right-0 p-1.5 rounded-full bg-white border border-gray-200 text-gray-600 hover:text-primary shadow-sm transition-colors">
-                    <FiCamera className="text-xs" />
-                  </button>
                 </div>
 
                 <div>
-                  <h2 className="text-xl font-display font-bold text-gray-900">{profileData?.fullName}</h2>
+                  <h2 className="text-xl font-display font-bold text-gray-900">
+                    {profileData?.fullName || 'Complete Your Profile'}
+                  </h2>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs font-medium capitalize border border-gray-200">
                       {userRole}
                     </span>
-                    {profileData?.isVerified && (
-                      <span className="px-2.5 py-0.5 rounded-full bg-green-50 text-green-700 text-xs font-medium flex items-center gap-1 border border-green-100">
-                        <FiShield className="text-xs" />
-                        Verified
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
@@ -163,8 +246,8 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* Quick Stats */}
-          {userRole === 'donor' && (
+          {/* Quick Stats - Donor Only */}
+          {userRole === 'donor' && profileData?.bloodType && (
             <div className="p-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-4 rounded-lg bg-gray-50 border border-gray-100">
@@ -172,17 +255,17 @@ const Profile = () => {
                   <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mt-1">Blood Type</div>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-gray-50 border border-gray-100">
-                  <div className="text-2xl font-display font-bold text-gray-900">{profileData?.totalDonations}</div>
+                  <div className="text-2xl font-display font-bold text-gray-900">{profileData?.totalDonations || 0}</div>
                   <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mt-1">Donations</div>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-gray-50 border border-gray-100">
-                  <div className="text-2xl font-display font-bold text-gray-900">
-                    {profileData?.lastDonation ? new Date(profileData.lastDonation).toLocaleDateString() : 'N/A'}
+                  <div className="text-sm font-display font-bold text-gray-900">
+                    {profileData?.lastDonation ? new Date(profileData.lastDonation).toLocaleDateString() : 'Never'}
                   </div>
                   <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mt-1">Last Date</div>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-gray-50 border border-gray-100">
-                  <div className="text-2xl font-display font-bold text-gray-900">{profileData?.weight}</div>
+                  <div className="text-2xl font-display font-bold text-gray-900">{profileData?.weight || 'N/A'}</div>
                   <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mt-1">Weight</div>
                 </div>
               </div>
@@ -200,19 +283,37 @@ const Profile = () => {
             </h3>
 
             <div className="space-y-5">
-              <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Full Name</label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editData.fullName || ''}
-                    onChange={(e) => handleChange('fullName', e.target.value)}
-                    className="input-field py-2"
-                  />
-                ) : (
-                  <p className="text-gray-900 text-sm">{profileData?.fullName}</p>
-                )}
-              </div>
+              {userRole === 'hospital' ? (
+                <div>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Hospital Name</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editData.hospitalName || ''}
+                      onChange={(e) => handleChange('hospitalName', e.target.value)}
+                      className="input-field py-2"
+                      placeholder="Enter hospital name"
+                    />
+                  ) : (
+                    <p className="text-gray-900 text-sm">{profileData?.hospitalName || 'Not provided'}</p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Full Name</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editData.fullName || ''}
+                      onChange={(e) => handleChange('fullName', e.target.value)}
+                      className="input-field py-2"
+                      placeholder="Enter your full name"
+                    />
+                  ) : (
+                    <p className="text-gray-900 text-sm">{profileData?.fullName || 'Not provided'}</p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Email Address</label>
@@ -230,34 +331,35 @@ const Profile = () => {
                     value={editData.phone || ''}
                     onChange={(e) => handleChange('phone', e.target.value)}
                     className="input-field py-2"
+                    placeholder="Enter phone number"
                   />
                 ) : (
                   <div className="flex items-center gap-2 text-gray-700 text-sm">
                     <FiPhone className="text-gray-400" />
-                    {profileData?.phone}
+                    {profileData?.phone || 'Not provided'}
                   </div>
                 )}
               </div>
 
-              <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Date of Birth</label>
-                {isEditing ? (
-                  <input
-                    type="date"
-                    value={editData.dateOfBirth || ''}
-                    onChange={(e) => handleChange('dateOfBirth', e.target.value)}
-                    className="input-field py-2"
-                  />
-                ) : (
-                  <div className="flex items-center gap-2 text-gray-700 text-sm">
-                    <FiCalendar className="text-gray-400" />
-                    {profileData?.dateOfBirth ? new Date(profileData.dateOfBirth).toLocaleDateString() : 'N/A'}
-                  </div>
-                )}
-              </div>
-
-              {userRole === 'donor' && (
+              {userRole !== 'hospital' && (
                 <>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Date of Birth</label>
+                    {isEditing ? (
+                      <input
+                        type="date"
+                        value={editData.dateOfBirth || ''}
+                        onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                        className="input-field py-2"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 text-gray-700 text-sm">
+                        <FiCalendar className="text-gray-400" />
+                        {profileData?.dateOfBirth ? new Date(profileData.dateOfBirth).toLocaleDateString() : 'Not provided'}
+                      </div>
+                    )}
+                  </div>
+
                   <div>
                     <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Blood Type</label>
                     {isEditing ? (
@@ -266,6 +368,7 @@ const Profile = () => {
                         onChange={(e) => handleChange('bloodType', e.target.value)}
                         className="input-field py-2"
                       >
+                        <option value="">Select blood type</option>
                         <option value="A+">A+</option>
                         <option value="A-">A-</option>
                         <option value="B+">B+</option>
@@ -278,40 +381,61 @@ const Profile = () => {
                     ) : (
                       <div className="flex items-center gap-2 text-gray-700 text-sm">
                         <FiDroplet className="text-primary" />
-                        {profileData?.bloodType}
+                        {profileData?.bloodType || 'Not provided'}
                       </div>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Weight</label>
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          value={editData.weight || ''}
-                          onChange={(e) => handleChange('weight', e.target.value)}
-                          className="input-field py-2"
-                        />
-                      ) : (
-                        <p className="text-gray-900 text-sm">{profileData?.weight}</p>
-                      )}
+                  {userRole === 'donor' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Weight</label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editData.weight || ''}
+                            onChange={(e) => handleChange('weight', e.target.value)}
+                            className="input-field py-2"
+                            placeholder="e.g., 70 kg"
+                          />
+                        ) : (
+                          <p className="text-gray-900 text-sm">{profileData?.weight || 'Not provided'}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Height</label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editData.height || ''}
+                            onChange={(e) => handleChange('height', e.target.value)}
+                            className="input-field py-2"
+                            placeholder="e.g., 175 cm"
+                          />
+                        ) : (
+                          <p className="text-gray-900 text-sm">{profileData?.height || 'Not provided'}</p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Height</label>
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          value={editData.height || ''}
-                          onChange={(e) => handleChange('height', e.target.value)}
-                          className="input-field py-2"
-                        />
-                      ) : (
-                        <p className="text-gray-900 text-sm">{profileData?.height}</p>
-                      )}
-                    </div>
-                  </div>
+                  )}
                 </>
+              )}
+
+              {userRole === 'hospital' && (
+                <div>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">License Number</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editData.licenseNumber || ''}
+                      onChange={(e) => handleChange('licenseNumber', e.target.value)}
+                      className="input-field py-2"
+                      placeholder="Enter license number"
+                    />
+                  ) : (
+                    <p className="text-gray-900 text-sm">{profileData?.licenseNumber || 'Not provided'}</p>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -332,9 +456,10 @@ const Profile = () => {
                     value={editData.address || ''}
                     onChange={(e) => handleChange('address', e.target.value)}
                     className="input-field py-2"
+                    placeholder="Enter street address"
                   />
                 ) : (
-                  <p className="text-gray-900 text-sm">{profileData?.address}</p>
+                  <p className="text-gray-900 text-sm">{profileData?.address || 'Not provided'}</p>
                 )}
               </div>
 
@@ -347,9 +472,10 @@ const Profile = () => {
                       value={editData.city || ''}
                       onChange={(e) => handleChange('city', e.target.value)}
                       className="input-field py-2"
+                      placeholder="City"
                     />
                   ) : (
-                    <p className="text-gray-900 text-sm">{profileData?.city}</p>
+                    <p className="text-gray-900 text-sm">{profileData?.city || 'Not provided'}</p>
                   )}
                 </div>
                 <div>
@@ -360,9 +486,10 @@ const Profile = () => {
                       value={editData.state || ''}
                       onChange={(e) => handleChange('state', e.target.value)}
                       className="input-field py-2"
+                      placeholder="State"
                     />
                   ) : (
-                    <p className="text-gray-900 text-sm">{profileData?.state}</p>
+                    <p className="text-gray-900 text-sm">{profileData?.state || 'Not provided'}</p>
                   )}
                 </div>
               </div>
@@ -375,50 +502,55 @@ const Profile = () => {
                     value={editData.zipCode || ''}
                     onChange={(e) => handleChange('zipCode', e.target.value)}
                     className="input-field py-2"
+                    placeholder="ZIP code"
                   />
                 ) : (
-                  <p className="text-gray-900 text-sm">{profileData?.zipCode}</p>
+                  <p className="text-gray-900 text-sm">{profileData?.zipCode || 'Not provided'}</p>
                 )}
               </div>
 
-              <div className="pt-6 border-t border-gray-100">
-                <h4 className="text-sm font-semibold text-gray-900 mb-4">Emergency Contact</h4>
+              {userRole !== 'hospital' && (
+                <div className="pt-6 border-t border-gray-100">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-4">Emergency Contact</h4>
 
-                <div className="space-y-5">
-                  <div>
-                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Contact Name</label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editData.emergencyContactName || ''}
-                        onChange={(e) => handleChange('emergencyContactName', e.target.value)}
-                        className="input-field py-2"
-                      />
-                    ) : (
-                      <p className="text-gray-900 text-sm">{profileData?.emergencyContactName}</p>
-                    )}
-                  </div>
+                  <div className="space-y-5">
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Contact Name</label>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editData.emergencyContactName || ''}
+                          onChange={(e) => handleChange('emergencyContactName', e.target.value)}
+                          className="input-field py-2"
+                          placeholder="Emergency contact name"
+                        />
+                      ) : (
+                        <p className="text-gray-900 text-sm">{profileData?.emergencyContactName || 'Not provided'}</p>
+                      )}
+                    </div>
 
-                  <div>
-                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Contact Phone</label>
-                    {isEditing ? (
-                      <input
-                        type="tel"
-                        value={editData.emergencyContact || ''}
-                        onChange={(e) => handleChange('emergencyContact', e.target.value)}
-                        className="input-field py-2"
-                      />
-                    ) : (
-                      <p className="text-gray-900 text-sm">{profileData?.emergencyContact}</p>
-                    )}
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 block">Contact Phone</label>
+                      {isEditing ? (
+                        <input
+                          type="tel"
+                          value={editData.emergencyContact || ''}
+                          onChange={(e) => handleChange('emergencyContact', e.target.value)}
+                          className="input-field py-2"
+                          placeholder="Emergency contact phone"
+                        />
+                      ) : (
+                        <p className="text-gray-900 text-sm">{profileData?.emergencyContact || 'Not provided'}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
-          {/* Medical Information (Donor only) */}
-          {userRole === 'donor' && (
+          {/* Medical Information (Donor/Patient only) */}
+          {userRole !== 'hospital' && (
             <div className="card-minimal p-6 lg:col-span-2">
               <h3 className="text-lg font-display font-semibold text-gray-900 mb-6 flex items-center gap-2 border-b border-gray-100 pb-4">
                 <FiActivity className="text-primary" />
@@ -434,9 +566,10 @@ const Profile = () => {
                       onChange={(e) => handleChange('medicalConditions', e.target.value)}
                       rows={3}
                       className="input-field py-2 resize-none"
+                      placeholder="List any medical conditions"
                     />
                   ) : (
-                    <p className="text-gray-900 text-sm">{profileData?.medicalConditions}</p>
+                    <p className="text-gray-900 text-sm">{profileData?.medicalConditions || 'None'}</p>
                   )}
                 </div>
 
@@ -448,9 +581,10 @@ const Profile = () => {
                       onChange={(e) => handleChange('allergies', e.target.value)}
                       rows={3}
                       className="input-field py-2 resize-none"
+                      placeholder="List any allergies"
                     />
                   ) : (
-                    <p className="text-gray-900 text-sm">{profileData?.allergies}</p>
+                    <p className="text-gray-900 text-sm">{profileData?.allergies || 'None'}</p>
                   )}
                 </div>
               </div>

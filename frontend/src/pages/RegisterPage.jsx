@@ -207,7 +207,6 @@ const RegisterPage = () => {
       }
 
       const userCred = await signup(formData.email, formData.password, formData.name, formData.role)
-      localStorage.setItem('userRole', formData.role)
 
       // Post-Registration: Save detailed profile to backend
       const uid = userCred.user.uid;

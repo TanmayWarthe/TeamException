@@ -1,127 +1,172 @@
 import { useState } from 'react'
-import { GoogleGenerativeAI } from '@google/generative-ai'
-import { FiMessageSquare, FiSend, FiCpu, FiLoader } from 'react-icons/fi'
+import { FiMessageCircle, FiSend, FiX, FiCpu } from 'react-icons/fi'
 
 const AIAssistant = () => {
-    const [prompt, setPrompt] = useState('')
-    const [response, setResponse] = useState('')
-    const [loading, setLoading] = useState(false)
     const [isOpen, setIsOpen] = useState(false)
+    const [messages, setMessages] = useState([
+        {
+            role: 'assistant',
+            content: 'Hi! I\'m your BloodConnect assistant. Ask me about blood donation, eligibility, or finding donors!'
+        }
+    ])
+    const [input, setInput] = useState('')
+    const [loading, setLoading] = useState(false)
 
-    const handleAnalyze = async (e) => {
-        e.preventDefault()
-        if (!prompt.trim()) return
+    const handleSend = async () => {
+        if (!input.trim() || loading) return
 
+        const userMessage = input.trim()
+        setInput('')
+
+        // Add user message
+        setMessages(prev => [...prev, { role: 'user', content: userMessage }])
         setLoading(true)
-        setResponse('')
 
         try {
-            const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+            // Simple rule-based responses for blood donation queries
+            const response = getResponse(userMessage.toLowerCase())
 
-            if (!apiKey) {
-                throw new Error('Gemini API key is not configured. Please add VITE_GEMINI_API_KEY to your .env file.')
-            }
+            // Simulate API delay for better UX
+            await new Promise(resolve => setTimeout(resolve, 500))
 
-            const genAI = new GoogleGenerativeAI(apiKey)
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
-
-            // Add context about the app
-            const systemContext = "You are a helpful assistant for BloodConnect, a blood donation platform. You help match donors with patients and provide health advice related to blood donation. Keep answers concise."
-            const fullPrompt = `${systemContext}\n\nUser: ${prompt}`
-
-            const result = await model.generateContent(fullPrompt)
-            const text = result.response.text()
-            setResponse(text)
+            setMessages(prev => [...prev, { role: 'assistant', content: response }])
         } catch (error) {
-            console.error("Gemini Error:", error)
-
-            let errorMessage = "Sorry, I encountered an error. "
-
-            if (error.message?.includes('API key')) {
-                errorMessage += "Please check your API key configuration."
-            } else if (error.message?.includes('404')) {
-                errorMessage += "The AI model is not available. Please contact support."
-            } else if (error.message?.includes('quota')) {
-                errorMessage += "API quota exceeded. Please try again later."
-            } else if (error.message?.includes('SAFETY')) {
-                errorMessage += "Your question was blocked by safety filters. Please rephrase."
-            } else {
-                errorMessage += `Error: ${error.message || 'Unknown error occurred'}`
-            }
-
-            setResponse(errorMessage)
+            setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: 'Sorry, I encountered an error. Please try again.'
+            }])
         } finally {
             setLoading(false)
         }
+    }
+
+    const getResponse = (query) => {
+        // Blood donation eligibility
+        if (query.includes('eligib') || query.includes('can i donate')) {
+            return '✅ **Blood Donation Eligibility:**\n\n• Age: 18-65 years\n• Weight: At least 50 kg\n• Healthy and feeling well\n• No recent tattoos (3 months)\n• No recent illness or medication\n\nWould you like to know more about any specific requirement?'
+        }
+
+        // Blood types
+        if (query.includes('blood type') || query.includes('blood group')) {
+            return '🩸 **Blood Types:**\n\n• **O-**: Universal donor\n• **AB+**: Universal recipient\n• **A, B, AB, O**: Each with + or - Rh factor\n\nYour blood type determines who you can donate to and receive from!'
+        }
+
+        // Donation frequency
+        if (query.includes('how often') || query.includes('frequency')) {
+            return '⏰ **Donation Frequency:**\n\n• Whole blood: Every 56 days (8 weeks)\n• Platelets: Every 7 days\n• Plasma: Every 28 days\n\nYour body needs time to replenish!'
+        }
+
+        // Benefits
+        if (query.includes('benefit') || query.includes('why donate')) {
+            return '❤️ **Benefits of Donating:**\n\n• Save up to 3 lives per donation\n• Free health screening\n• Reduces risk of heart disease\n• Burns calories (~650 per donation)\n• Feel good helping others!\n\nEvery donation makes a difference!'
+        }
+
+        // Side effects
+        if (query.includes('side effect') || query.includes('after donation')) {
+            return '💡 **After Donation:**\n\n**Normal:**\n• Slight tiredness\n• Mild bruising\n• Thirst\n\n**Tips:**\n• Drink plenty of fluids\n• Eat iron-rich foods\n• Rest if needed\n• Avoid heavy exercise for 24h\n\nContact us if you feel unwell!'
+        }
+
+        // Finding donors
+        if (query.includes('find donor') || query.includes('need blood')) {
+            return '🔍 **Finding Donors:**\n\n1. Click "Blood Map" to see nearby donors\n2. Filter by blood type\n3. Send a request\n4. Donors will be notified\n\nYou can also create an urgent request from your dashboard!'
+        }
+
+        // Process
+        if (query.includes('process') || query.includes('how to donate')) {
+            return '📋 **Donation Process:**\n\n1. Register on BloodConnect\n2. Complete health questionnaire\n3. Schedule appointment\n4. Visit donation center\n5. Quick health check (10 min)\n6. Donate blood (10-15 min)\n7. Rest and refreshments\n\nTotal time: ~1 hour'
+        }
+
+        // Default response
+        return '🤖 I can help you with:\n\n• Donation eligibility\n• Blood types and compatibility\n• Donation frequency\n• Benefits and side effects\n• Finding donors\n• Donation process\n\nWhat would you like to know?'
     }
 
     if (!isOpen) {
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-6 right-6 p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all z-50 flex items-center gap-2"
+                className="fixed bottom-6 right-6 p-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all z-50 flex items-center gap-2"
             >
-                <FiCpu className="text-xl" />
-                <span className="font-bold">AI Help</span>
+                <FiMessageCircle className="text-xl" />
+                <span className="font-semibold">Chat</span>
             </button>
         )
     }
 
     return (
-        <div className="fixed bottom-6 right-6 w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden flex flex-col animate-fade-in-up">
+        <div className="fixed bottom-6 right-6 w-96 h-[600px] bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 flex flex-col">
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex justify-between items-center text-white">
-                <div className="flex items-center gap-2">
-                    <FiCpu />
-                    <h3 className="font-bold">Smart Assistant</h3>
+            <div className="bg-gradient-to-r from-red-500 to-red-600 p-4 rounded-t-2xl flex items-center justify-between text-white">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                        <FiCpu className="text-xl" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold">BloodConnect AI</h3>
+                        <p className="text-xs text-white/80">Always here to help</p>
+                    </div>
                 </div>
                 <button
                     onClick={() => setIsOpen(false)}
-                    className="text-white/80 hover:text-white"
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                 >
-                    &times;
+                    <FiX className="text-xl" />
                 </button>
             </div>
 
-            {/* Content */}
-            <div className="p-4 h-80 overflow-y-auto bg-gray-50 flex flex-col gap-3">
-                {response ? (
-                    <div className="bg-white p-3 rounded-lg rounded-tl-none shadow-sm border border-gray-100 text-sm text-gray-700 leading-relaxed">
-                        {response}
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+                {messages.map((msg, idx) => (
+                    <div
+                        key={idx}
+                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                        <div
+                            className={`max-w-[80%] rounded-2xl px-4 py-3 ${msg.role === 'user'
+                                    ? 'bg-red-500 text-white rounded-br-none'
+                                    : 'bg-white text-gray-800 rounded-bl-none shadow-sm border border-gray-100'
+                                }`}
+                        >
+                            <p className="text-sm whitespace-pre-line leading-relaxed">
+                                {msg.content}
+                            </p>
+                        </div>
                     </div>
-                ) : (
-                    <div className="text-center text-gray-400 text-sm mt-10">
-                        <FiMessageSquare className="mx-auto text-2xl mb-2 opacity-50" />
-                        <p>Ask me about donation eligibility, <br />finding donors, or health tips.</p>
-                    </div>
-                )}
+                ))}
 
                 {loading && (
-                    <div className="flex justify-center py-4">
-                        <FiLoader className="animate-spin text-indigo-600" />
+                    <div className="flex justify-start">
+                        <div className="bg-white rounded-2xl rounded-bl-none px-4 py-3 shadow-sm border border-gray-100">
+                            <div className="flex gap-1">
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
 
             {/* Input */}
-            <form onSubmit={handleAnalyze} className="p-3 bg-white border-t border-gray-100">
-                <div className="relative">
+            <div className="p-4 bg-white border-t border-gray-200 rounded-b-2xl">
+                <div className="flex gap-2">
                     <input
                         type="text"
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        placeholder="Ask AI..."
-                        className="w-full pl-4 pr-12 py-2.5 bg-gray-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                        placeholder="Ask me anything..."
+                        className="flex-1 px-4 py-3 bg-gray-100 rounded-xl border-none focus:ring-2 focus:ring-red-500 focus:bg-white transition-all text-sm"
+                        disabled={loading}
                     />
                     <button
-                        type="submit"
-                        disabled={loading || !prompt.trim()}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                        onClick={handleSend}
+                        disabled={!input.trim() || loading}
+                        className="px-4 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                        <FiSend className="text-xs" />
+                        <FiSend />
                     </button>
                 </div>
-            </form>
+            </div>
         </div>
     )
 }

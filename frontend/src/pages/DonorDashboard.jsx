@@ -8,6 +8,7 @@ import { apiService } from '../services/api.service';
 
 const DonorDashboard = () => {
   const { currentUser } = useAuth();
+  const [donorProfile, setDonorProfile] = useState(null);
   const [availability, setAvailability] = useState('available');
   const [requests, setRequests] = useState([]);
   const [history, setHistory] = useState([]);
@@ -20,7 +21,7 @@ const DonorDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [currentUser]);
 
   const fetchDashboardData = async () => {
     if (!currentUser?.uid) {
@@ -30,10 +31,18 @@ const DonorDashboard = () => {
 
     setLoading(true);
     try {
-      const [donationsRes, requestsRes] = await Promise.allSettled([
+      const [donorRes, donationsRes, requestsRes] = await Promise.allSettled([
+        apiService.get(`/donors/${currentUser.uid}`),
         apiService.get(`/donations/donor/${currentUser.uid}`),
         apiService.get('/requests/pending'),
       ]);
+
+      // Fetch donor profile for blood type and status
+      if (donorRes.status === 'fulfilled') {
+        const profile = donorRes.value.data;
+        setDonorProfile(profile);
+        setAvailability(profile.availabilityStatus?.toLowerCase() || 'available');
+      }
 
       if (donationsRes.status === 'fulfilled') {
         const rawHistory = donationsRes.value.data || [];
@@ -80,13 +89,19 @@ const DonorDashboard = () => {
   };
 
   const handleAvailabilityChange = async (newStatus) => {
+    if (!currentUser?.uid) {
+      alert('Please login to update availability');
+      return;
+    }
+
     try {
       setAvailability(newStatus);
-      await apiService.put(`/donors/availability/${DONOR_ID}`, null, {
-        params: { status: newStatus },
+      await apiService.put(`/donors/availability/${currentUser.uid}`, null, {
+        params: { status: newStatus.toUpperCase() },
       });
     } catch (error) {
       console.error('Error updating availability:', error);
+      alert('Failed to update availability');
     }
   };
 
@@ -136,7 +151,10 @@ const DonorDashboard = () => {
               </div>
               <div>
                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Blood Type</span>
-                <p className="font-display font-bold text-lg text-gray-900">{currentUser?.bloodType || 'N/A'}</p>
+                <p className="font-display font-bold text-lg text-gray-900">
+                  {donorProfile?.bloodGroup || 'N/A'}
+                  {donorProfile?.rhFactor && (donorProfile.rhFactor === 'positive' ? '+' : '-')}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-4">

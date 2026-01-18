@@ -10,5 +10,7 @@ import java.util.Optional;
 public interface DonorRepository extends JpaRepository<Donor, Long> {
     Optional<Donor> findByUser(User user);
 
+    List<Donor> findByBloodGroup(String bloodGroup);
+
     List<Donor> findByBloodGroupAndAvailabilityStatus(String bloodGroup, AvailabilityStatus status);
 }

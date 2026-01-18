@@ -21,14 +21,21 @@ const LoginPage = () => {
         try {
             setError('')
             setLoading(true)
-            await login(email, password)
+            const userCredential = await login(email, password)
 
-            // Determine redirect based on role stored or default
-            const role = localStorage.getItem('userRole')
-            if (role) {
+            // Fetch role from database
+            const uid = userCredential.user.uid
+            const response = await fetch(`http://localhost:8080/api/users/${uid}/role`)
+
+            if (response.ok) {
+                const data = await response.json()
+                const role = data.role // 'donor', 'hospital', or 'patient'
+
+                // Navigate to correct dashboard based on database role
                 navigate(`/${role}/dashboard`)
             } else {
-                navigate('/donor/dashboard')
+                // Fallback if role fetch fails
+                setError('Could not determine user role. Please contact support.')
             }
 
         } catch (err) {

@@ -18,6 +18,7 @@ import {
 } from 'react-icons/fi'
 import { Transition } from '@headlessui/react'
 import AIAssistant from './AIAssistant'
+import NotificationBell from './NotificationBell'
 
 const Layout = ({ children }) => {
   const { currentUser, logout } = useAuth()
@@ -68,9 +69,6 @@ const Layout = ({ children }) => {
 
   const navItems = getNavItems()
 
-  const [notifications] = useState([])
-  const unreadCount = notifications.filter((n) => !n.read).length
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Transition show={sidebarOpen} as={Fragment}>
@@ -103,8 +101,8 @@ const Layout = ({ children }) => {
                   to={item.path}
                   onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group ${isActive
-                      ? 'bg-red-50 text-red-600 font-semibold'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    ? 'bg-red-50 text-red-600 font-semibold'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }`}
                 >
                   <span className="text-lg">{item.icon}</span>
@@ -160,7 +158,7 @@ const Layout = ({ children }) => {
               </div>
 
               <div className="flex items-center gap-4">
-                <NotificationDropdown notifications={notifications} unreadCount={unreadCount} />
+                <NotificationBell />
                 <ProfileDropdown userName={userName} userRole={userRole} handleLogout={handleLogout} />
               </div>
             </div>

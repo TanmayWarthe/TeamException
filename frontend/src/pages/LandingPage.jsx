@@ -1,9 +1,13 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { FiDroplet, FiActivity, FiMapPin, FiShield, FiTrendingUp, FiClock, FiHeart, FiUsers, FiBarChart2 } from 'react-icons/fi'
+import AuthModal from '../components/AuthModal'
 
 function LandingPage() {
   const { currentUser } = useAuth()
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [authMode, setAuthMode] = useState('login') // 'login' or 'register'
 
   const getDashboardPath = () => {
     if (!currentUser) return '/login'
@@ -16,6 +20,11 @@ function LandingPage() {
     }
 
     return '/donor/dashboard' // default fallback
+  }
+
+  const openAuthModal = (mode) => {
+    setAuthMode(mode)
+    setAuthModalOpen(true)
   }
 
   const features = [
@@ -89,18 +98,18 @@ function LandingPage() {
                 </Link>
               ) : (
                 <>
-                  <Link
-                    to="/login"
+                  <button
+                    onClick={() => openAuthModal('login')}
                     className="text-gray-600 hover:text-gray-900 font-medium px-4 py-2 transition-colors duration-200"
                   >
                     Log In
-                  </Link>
-                  <Link
-                    to="/register"
+                  </button>
+                  <button
+                    onClick={() => openAuthModal('register')}
                     className="btn-primary py-2 px-6 text-sm"
                   >
                     Sign Up
-                  </Link>
+                  </button>
                 </>
               )}
             </div>
@@ -133,12 +142,12 @@ function LandingPage() {
 
           {!currentUser && (
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link
-                to="/register"
+              <button
+                onClick={() => openAuthModal('register')}
                 className="btn-primary text-lg px-8 py-3.5 shadow-xl shadow-primary/10"
               >
                 Get Started
-              </Link>
+              </button>
             </div>
           )}
 
@@ -196,19 +205,17 @@ function LandingPage() {
 
           {!currentUser && (
             <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
-              <Link
-                to="/register"
+              <button
+                onClick={() => openAuthModal('register')}
                 className="px-8 py-3.5 bg-primary text-white font-bold rounded-lg shadow-lg hover:bg-primary-dark transition-all duration-300 flex items-center gap-2"
               >
                 <FiUsers className="text-lg" />
                 Join Community
-              </Link>
+              </button>
             </div>
           )}
         </div>
       </section>
-
-
 
       {/* Footer */}
       <footer className="bg-white border-t border-gray-100 py-12">
@@ -229,6 +236,13 @@ function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        initialMode={authMode}
+      />
     </div>
   )
 }

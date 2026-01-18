@@ -3,6 +3,7 @@ package com.bloodconnect.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -32,5 +33,6 @@ public class Patient {
     private Double longitude;
 
     @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore // Prevent circular reference in JSON serialization
     private List<BloodRequest> requests = new ArrayList<>();
 }

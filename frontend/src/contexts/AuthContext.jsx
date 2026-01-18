@@ -20,6 +20,21 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Fetch user role from database
+  async function fetchUserRole(uid) {
+    try {
+      const response = await fetch(`http://localhost:8080/api/users/${uid}/role`)
+      if (response.ok) {
+        const data = await response.json()
+        return data.role // 'donor', 'hospital', or 'patient'
+      }
+      return null
+    } catch (error) {
+      console.error('Error fetching user role:', error)
+      return null
+    }
+  }
+
   function signup(email, password, name, role = 'donor') {
     return createUserWithEmailAndPassword(auth, email, password)
       .then(async (userCredential) => {
@@ -30,15 +45,11 @@ export function AuthProvider({ children }) {
         try {
           const user = userCredential.user;
           const token = await user.getIdToken();
-          localStorage.setItem('authToken', token);
 
-          // We import apiService dynamically or assume it handles the header if we set it in localStorage
-          // But here we need to make a call. We'll use fetch for simplicity to avoid circular dep if apiService imports AuthContext
           const response = await fetch('http://localhost:8080/api/users/sync', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              // 'Authorization': `Bearer ${token}` 
             },
             body: JSON.stringify({
               firebaseUid: user.uid,
@@ -52,7 +63,6 @@ export function AuthProvider({ children }) {
           }
         } catch (error) {
           console.error("Backend sync failed", error);
-          // Verify if we should throw or just log
         }
 
         return userCredential;
@@ -69,19 +79,27 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
+    // Clear any cached data
+    setCurrentUser(null)
     return signOut(auth)
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user)
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Optional: Get token for backend calls
-        user.getIdToken().then(token => {
-          localStorage.setItem('authToken', token)
+        // Fetch role from database
+        const role = await fetchUserRole(user.uid)
+
+        // Set current user with role from database
+        setCurrentUser({
+          ...user,
+          role: role, // Role from database
+          uid: user.uid,
+          email: user.email,
+          name: user.displayName
         })
       } else {
-        localStorage.removeItem('authToken')
+        setCurrentUser(null)
       }
       setLoading(false)
     })

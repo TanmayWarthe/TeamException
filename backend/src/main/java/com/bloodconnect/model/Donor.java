@@ -3,6 +3,7 @@ package com.bloodconnect.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ public class Donor {
     private AvailabilityStatus availabilityStatus = AvailabilityStatus.AVAILABLE;
 
     @OneToMany(mappedBy = "donor", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore // Prevent circular reference in JSON serialization
     private List<Donation> donations = new ArrayList<>();
 
     public enum AvailabilityStatus {

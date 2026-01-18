@@ -10,13 +10,13 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  
+
   // Login state
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
-  
+
   // Register state
   const [formData, setFormData] = useState({
     name: '',
@@ -36,9 +36,16 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
   })
   const [fieldErrors, setFieldErrors] = useState({})
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, label: '', color: '' })
-  
+
   const { login, signup } = useAuth()
   const navigate = useNavigate()
+
+  // Sync mode with initialMode when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode)
+    }
+  }, [isOpen, initialMode])
 
   const handleClose = useCallback(() => {
     setEmail('')
@@ -53,7 +60,6 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
       confirmPassword: '',
       role: '',
       bloodType: '',
-      rhFactor: '',
       phone: '',
       dateOfBirth: '',
       disease: '',
@@ -65,9 +71,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
     })
     setFieldErrors({})
     setStep(1)
-    setMode(initialMode)
     onClose()
-  }, [initialMode, onClose])
+  }, [onClose])
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -102,7 +107,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
   }
 
   const navigateToDashboard = (role) => {
-    switch(role) {
+    switch (role) {
       case 'donor':
         navigate('/donor/dashboard')
         break
@@ -161,11 +166,21 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
     setLoading(true)
 
     try {
-      await login(email, password)
-      
-      const savedRole = localStorage.getItem('userRole') || 'donor'
-      handleClose()
-      navigateToDashboard(savedRole)
+      const userCredential = await login(email, password)
+
+      // Fetch role from database
+      const uid = userCredential.user.uid
+      const response = await fetch(`http://localhost:8080/api/users/${uid}/role`)
+
+      if (response.ok) {
+        const data = await response.json()
+        const role = data.role
+
+        handleClose()
+        navigateToDashboard(role)
+      } else {
+        setError('Could not determine user role')
+      }
     } catch (err) {
       console.error('Login error:', err)
       if (err.code === 'auth/user-not-found') {
@@ -190,11 +205,11 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
 
     const labels = ['Weak', 'Fair', 'Good', 'Strong']
     const colors = ['text-rose-400', 'text-orange-400', 'text-yellow-400', 'text-emerald-400']
-    
-    setPasswordStrength({ 
-      score, 
-      label: score > 0 ? labels[score - 1] : 'Very Weak', 
-      color: score > 0 ? colors[score - 1] : 'text-gray-400' 
+
+    setPasswordStrength({
+      score,
+      label: score > 0 ? labels[score - 1] : 'Very Weak',
+      color: score > 0 ? colors[score - 1] : 'text-gray-400'
     })
   }
 
@@ -207,7 +222,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
   // Register validation
   const validateStep1 = () => {
     const errors = {}
-    
+
     const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/
     if (!formData.email.trim()) errors.email = 'Email is required'
     else if (!emailRegex.test(formData.email)) errors.email = 'Invalid email address'
@@ -220,7 +235,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
     }
 
     if (!formData.name.trim()) errors.name = 'Name is required'
-    
+
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -242,12 +257,12 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
     if (formData.role === 'donor' || formData.role === 'patient') {
       if (!formData.bloodType) errors.bloodType = 'Blood type is required'
       if (!formData.dateOfBirth) errors.dateOfBirth = 'Date of birth is required'
-      
+
       // Rh factor required for donors only
       if (formData.role === 'donor' && !formData.rhFactor) {
         errors.rhFactor = 'Rh factor is required'
       }
-      
+
       const phoneErr = validatePhone(formData.phone)
       if (phoneErr) errors.phone = phoneErr
 
@@ -261,7 +276,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
       if (!formData.hospitalName?.trim()) errors.hospitalName = 'Hospital name is required'
       if (!formData.licenseNumber?.trim()) errors.licenseNumber = 'License number is required'
       if (!formData.address?.trim()) errors.address = 'Address is required'
-      
+
       const phoneErr = validatePhone(formData.phone)
       if (phoneErr) errors.phone = phoneErr
     }
@@ -285,7 +300,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (!validateStep2()) return
 
     setLoading(true)
@@ -321,8 +336,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
       }
 
       await signup(formData.email, formData.password, userData)
-      localStorage.setItem('userRole', formData.role)
-      
+
       handleClose()
       navigateToDashboard(formData.role)
     } catch (err) {
@@ -347,7 +361,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
-    
+
     if (fieldErrors[name]) {
       setFieldErrors(prev => ({ ...prev, [name]: '' }))
     }
@@ -357,11 +371,11 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
   if (!isOpen) return null
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
       onClick={handleClose}
     >
-      <div 
+      <div
         className="bg-white rounded-lg border border-gray-200 shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto relative"
         onClick={(e) => e.stopPropagation()}
       >
@@ -379,21 +393,19 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
             <div className="flex items-center justify-center gap-2 mb-8">
               <button
                 onClick={() => setMode('login')}
-                className={`px-8 py-2.5 rounded-lg font-semibold ${
-                  mode === 'login'
-                    ? 'bg-red-500 text-white'
-                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
-                }`}
+                className={`px-8 py-2.5 rounded-lg font-semibold ${mode === 'login'
+                  ? 'bg-red-500 text-white'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                  }`}
               >
                 Login
               </button>
               <button
                 onClick={() => setMode('register')}
-                className={`px-8 py-2.5 rounded-lg font-semibold ${
-                  mode === 'register'
-                    ? 'bg-red-500 text-white'
-                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
-                }`}
+                className={`px-8 py-2.5 rounded-lg font-semibold ${mode === 'register'
+                  ? 'bg-red-500 text-white'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                  }`}
               >
                 Sign Up
               </button>
@@ -445,9 +457,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       onChange={(e) => setEmail(e.target.value)}
                       onBlur={() => validateEmail(email)}
                       placeholder="you@example.com"
-                      className={`w-full pl-11 pr-4 py-3 bg-white border ${
-                        emailError ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                      className={`w-full pl-11 pr-4 py-3 bg-white border ${emailError ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                     />
                     {emailError && (
                       <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
@@ -471,9 +482,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       onChange={(e) => setPassword(e.target.value)}
                       onBlur={() => validatePassword(password)}
                       placeholder="Enter your password"
-                      className={`w-full pl-11 pr-12 py-3 bg-white border ${
-                        passwordError ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                      className={`w-full pl-11 pr-12 py-3 bg-white border ${passwordError ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                     />
                     <button
                       type="button"
@@ -547,9 +557,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       value={formData.name}
                       onChange={handleChange}
                       placeholder="John Doe"
-                      className={`w-full pl-11 pr-4 py-3 bg-white border ${
-                        fieldErrors.name ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                      className={`w-full pl-11 pr-4 py-3 bg-white border ${fieldErrors.name ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                     />
                     {fieldErrors.name && (
                       <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
@@ -572,9 +581,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       value={formData.email}
                       onChange={handleChange}
                       placeholder="you@example.com"
-                      className={`w-full pl-11 pr-4 py-3 bg-white border ${
-                        fieldErrors.email ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                      className={`w-full pl-11 pr-4 py-3 bg-white border ${fieldErrors.email ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                     />
                     {fieldErrors.email && (
                       <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
@@ -597,9 +605,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       value={formData.password}
                       onChange={handleChange}
                       placeholder="Create a strong password"
-                      className={`w-full pl-11 pr-12 py-3 bg-white border ${
-                        fieldErrors.password ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                      className={`w-full pl-11 pr-12 py-3 bg-white border ${fieldErrors.password ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                     />
                     <button
                       type="button"
@@ -611,23 +618,21 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                     {formData.password && (
                       <div className="mt-2 flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full ${
-                              passwordStrength.score === 1 ? 'bg-red-500 w-1/4' :
+                          <div
+                            className={`h-full ${passwordStrength.score === 1 ? 'bg-red-500 w-1/4' :
                               passwordStrength.score === 2 ? 'bg-orange-500 w-2/4' :
-                              passwordStrength.score === 3 ? 'bg-yellow-500 w-3/4' :
-                              passwordStrength.score === 4 ? 'bg-green-500 w-full' :
-                              'bg-gray-400 w-0'
-                            }`}
+                                passwordStrength.score === 3 ? 'bg-yellow-500 w-3/4' :
+                                  passwordStrength.score === 4 ? 'bg-green-500 w-full' :
+                                    'bg-gray-400 w-0'
+                              }`}
                           ></div>
                         </div>
-                        <span className={`text-xs font-medium ${
-                          passwordStrength.score === 1 ? 'text-red-600' :
+                        <span className={`text-xs font-medium ${passwordStrength.score === 1 ? 'text-red-600' :
                           passwordStrength.score === 2 ? 'text-orange-600' :
-                          passwordStrength.score === 3 ? 'text-yellow-600' :
-                          passwordStrength.score === 4 ? 'text-green-600' :
-                          'text-gray-600'
-                        }`}>
+                            passwordStrength.score === 3 ? 'text-yellow-600' :
+                              passwordStrength.score === 4 ? 'text-green-600' :
+                                'text-gray-600'
+                          }`}>
                           {passwordStrength.label}
                         </span>
                       </div>
@@ -653,9 +658,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       value={formData.confirmPassword}
                       onChange={handleChange}
                       placeholder="Confirm your password"
-                      className={`w-full pl-11 pr-4 py-3 bg-white border ${
-                        fieldErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                      className={`w-full pl-11 pr-4 py-3 bg-white border ${fieldErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                     />
                     {fieldErrors.confirmPassword && (
                       <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
@@ -708,11 +712,10 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       key={role}
                       type="button"
                       onClick={() => handleChange({ target: { name: 'role', value: role } })}
-                      className={`p-4 rounded-lg border-2 ${
-                        formData.role === role
-                          ? 'bg-red-50 border-red-500 text-red-600'
-                          : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
-                      }`}
+                      className={`p-4 rounded-lg border-2 ${formData.role === role
+                        ? 'bg-red-50 border-red-500 text-red-600'
+                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                        }`}
                     >
                       <span className="block text-sm font-semibold capitalize">{role}</span>
                     </button>
@@ -734,9 +737,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       name="bloodType"
                       value={formData.bloodType}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 bg-white border ${
-                        fieldErrors.bloodType ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg text-gray-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                      className={`w-full px-4 py-3 bg-white border ${fieldErrors.bloodType ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg text-gray-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                     >
                       <option value="">Select Blood Type</option>
                       {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(type => (
@@ -793,9 +795,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       type="date"
                       value={formData.dateOfBirth}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 bg-white border ${
-                        fieldErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg text-gray-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                      className={`w-full px-4 py-3 bg-white border ${fieldErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg text-gray-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                     />
                     {fieldErrors.dateOfBirth && (
                       <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
@@ -815,9 +816,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       maxLength="10"
                       pattern="[0-9]{10}"
                       onInput={(e) => e.target.value = e.target.value.replace(/[^0-9]/g, '')}
-                      className={`w-full px-4 py-3 bg-white border ${
-                        fieldErrors.phone ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                      className={`w-full px-4 py-3 bg-white border ${fieldErrors.phone ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                     />
                     {fieldErrors.phone && (
                       <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
@@ -835,9 +835,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                         name="disease"
                         value={formData.disease}
                         onChange={handleChange}
-                        className={`w-full px-4 py-3 bg-white border ${
-                          fieldErrors.disease ? 'border-red-500' : 'border-gray-300'
-                        } rounded-lg text-gray-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                        className={`w-full px-4 py-3 bg-white border ${fieldErrors.disease ? 'border-red-500' : 'border-gray-300'
+                          } rounded-lg text-gray-800 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                       >
                         <option value="">Select Disease/Condition</option>
                         <option value="Thalassemia">Thalassemia</option>
@@ -883,9 +882,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       value={formData.hospitalName}
                       onChange={handleChange}
                       placeholder="City General Hospital"
-                      className={`w-full px-4 py-3 bg-white border ${
-                        fieldErrors.hospitalName ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                      className={`w-full px-4 py-3 bg-white border ${fieldErrors.hospitalName ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                     />
                     {fieldErrors.hospitalName && (
                       <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
@@ -901,9 +899,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       value={formData.licenseNumber}
                       onChange={handleChange}
                       placeholder="LIC-123456"
-                      className={`w-full px-4 py-3 bg-white border ${
-                        fieldErrors.licenseNumber ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                      className={`w-full px-4 py-3 bg-white border ${fieldErrors.licenseNumber ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                     />
                     {fieldErrors.licenseNumber && (
                       <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
@@ -923,9 +920,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       maxLength="10"
                       pattern="[0-9]{10}"
                       onInput={(e) => e.target.value = e.target.value.replace(/[^0-9]/g, '')}
-                      className={`w-full px-4 py-3 bg-white border ${
-                        fieldErrors.phone ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                      className={`w-full px-4 py-3 bg-white border ${fieldErrors.phone ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                     />
                     {fieldErrors.phone && (
                       <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
@@ -942,9 +938,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                       value={formData.address}
                       onChange={handleChange}
                       placeholder="123 Medical Plaza"
-                      className={`w-full px-4 py-3 bg-white border ${
-                        fieldErrors.address ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
+                      className={`w-full px-4 py-3 bg-white border ${fieldErrors.address ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none`}
                     />
                     {fieldErrors.address && (
                       <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
