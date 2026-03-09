@@ -2,6 +2,7 @@
 
 import streamlit as st
 import json
+from pathlib import Path
 from dotenv import load_dotenv
 import database as db
 import auth_utils as auth
@@ -12,7 +13,7 @@ from browser_lock import inject_browser_lock
 from webcam_proctor import inject_webcam_proctor
 from user_memory import extract_memories_from_conversation, extract_memories_with_ai, get_memory_context_for_ai
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
 # Require authentication
 auth.require_auth()

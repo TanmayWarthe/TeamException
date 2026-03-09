@@ -2,13 +2,14 @@
 
 import streamlit as st
 from dotenv import load_dotenv
+from pathlib import Path
 import database as db
 import auth_utils as auth
 import os
 
 from ui_utils import apply_global_css
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
 # Initialize database
 db.init_db()

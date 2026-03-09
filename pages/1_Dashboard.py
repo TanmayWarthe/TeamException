@@ -4,11 +4,12 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
+from pathlib import Path
 from dotenv import load_dotenv
 import database as db
 import auth_utils as auth
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
 st.set_page_config(page_title="IntervueX – Dashboard", page_icon="📊", layout="wide")
 

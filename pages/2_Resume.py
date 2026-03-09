@@ -2,12 +2,13 @@
 
 import streamlit as st
 import json
+from pathlib import Path
 from dotenv import load_dotenv
 import database as db
 import auth_utils as auth
 from resume_parser import parse_resume
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
 # Require authentication
 auth.require_auth()
