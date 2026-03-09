@@ -27,28 +27,26 @@ apply_global_css()
 
 st.markdown("""
 <style>
+    /* HR Interview page — uses tokens from ui_utils.py */
     .interviewer-msg {
-        background: #ffffff !important;
-        color: #000000 !important;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        border-left: 4px solid #818CF8;
+        background: var(--card-bg) !important;
+        border: 1px solid var(--card-border);
+        border-left: 4px solid var(--secondary);
         padding: 16px 20px;
         border-radius: 12px;
         margin: 10px 0;
     }
     .candidate-msg {
-        background: #ffffff !important;
-        color: #000000 !important;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        border-left: 4px solid #34D399;
+        background: var(--card-bg) !important;
+        border: 1px solid var(--card-border);
+        border-left: 4px solid var(--accent-green-light);
         padding: 16px 20px;
         border-radius: 12px;
         margin: 10px 0;
     }
     .hr-question-card {
-        background: #ffffff !important;
-        color: #000000 !important;
-        border: 1px solid #EC4899;
+        background: var(--card-bg) !important;
+        border: 1px solid var(--accent-pink);
         border-radius: 16px;
         padding: 24px;
         margin: 15px 0;
@@ -246,7 +244,7 @@ else:
     # Display current question
     st.markdown(f"""
     <div class="hr-question-card">
-        <span style="background:#EC4899;color:white;padding:2px 10px;border-radius:12px;font-size:0.8rem;">
+        <span style="background:var(--accent-pink);color:white;padding:2px 10px;border-radius:12px;font-size:0.8rem;">
             {category.upper()}
         </span>
         <h3 style="margin-top:12px;">🤖 {q_text}</h3>

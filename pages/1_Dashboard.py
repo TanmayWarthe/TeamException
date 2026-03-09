@@ -23,17 +23,13 @@ apply_global_css()
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
-    html, body, [class*="css"] {
-        font-family: 'Outfit', sans-serif !important;
-    }
+    /* Dashboard metric cards — uses tokens from ui_utils.py */
     .metric-card {
-        background: #ffffff !important;
-        color: #000000 !important;
+        background: var(--card-bg) !important;
         border-radius: 18px;
         padding: 24px;
         text-align: center;
-        border: 1px solid rgba(128, 128, 128, 0.15);
+        border: 1px solid var(--card-border);
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
         margin: 5px 0;
         transition: transform 0.2s;
@@ -49,12 +45,11 @@ st.markdown("""
     .metric-value {
         font-size: 2.2rem;
         font-weight: 800;
-        color: #4F46E5;
+        color: var(--primary);
     }
     .metric-label {
         font-size: 0.85rem;
-        color: #000000;
-        opacity: 0.8;
+        opacity: 0.75;
         font-weight: 600;
         margin-top: 4px;
         text-transform: uppercase;

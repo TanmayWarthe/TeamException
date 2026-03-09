@@ -34,29 +34,27 @@ apply_global_css()
 # Custom CSS for interview page
 st.markdown("""
 <style>
+    /* DSA Interview page — uses tokens from ui_utils.py */
     .interviewer-msg {
-        background: #ffffff !important;
-        color: #000000 !important;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        border-left: 4px solid #818CF8;
+        background: var(--card-bg) !important;
+        border: 1px solid var(--card-border);
+        border-left: 4px solid var(--secondary);
         padding: 16px 20px;
         border-radius: 12px;
         margin: 10px 0;
     }
     .candidate-msg {
-        background: #ffffff !important;
-        color: #000000 !important;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        border-left: 4px solid #34D399;
+        background: var(--card-bg) !important;
+        border: 1px solid var(--card-border);
+        border-left: 4px solid var(--accent-green-light);
         padding: 16px 20px;
         border-radius: 12px;
         margin: 10px 0;
     }
     .system-msg {
-        background: #ffffff !important;
-        color: #000000 !important;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        border-left: 4px solid #F472B6;
+        background: var(--card-bg) !important;
+        border: 1px solid var(--card-border);
+        border-left: 4px solid var(--accent-pink);
         padding: 12px 16px;
         border-radius: 12px;
         margin: 8px 0;
@@ -64,9 +62,8 @@ st.markdown("""
         opacity: 0.9;
     }
     .question-card {
-        background: #ffffff !important;
-        color: #000000 !important;
-        border: 1px solid #4F46E5;
+        background: var(--card-bg) !important;
+        border: 1px solid var(--primary);
         border-radius: 16px;
         padding: 24px;
         margin: 15px 0;

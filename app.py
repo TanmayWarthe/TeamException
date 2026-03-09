@@ -25,20 +25,14 @@ st.set_page_config(
 
 apply_global_css()
 
-# Custom CSS
+# Custom CSS — uses tokens defined in ui_utils.py (:root variables)
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
-    
-    /* Make the entire app use the Outfit font natively */
-    html, body, [class*="css"] {
-        font-family: 'Outfit', sans-serif !important;
-    }
-    
+    /* ── Hero / Auth Page ── */
     .main-header {
         font-size: 4.5rem;
         font-weight: 800;
-        background: linear-gradient(135deg, #4F46E5, #7C3AED, #EC4899);
+        background: var(--brand-gradient);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 0.5rem;
@@ -52,53 +46,53 @@ st.markdown("""
         font-weight: 400;
         line-height: 1.6;
     }
+
+    /* ── Feature Cards (landing / auth page) ── */
     .feature-card {
-        background: #ffffff !important;
-        color: #000000 !important;
+        background: var(--card-bg) !important;
         border-radius: 20px;
         padding: 28px;
         margin: 12px 0;
-        border: 1px solid rgba(128, 128, 128, 0.15);
+        border: 1px solid var(--card-border);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .feature-card:hover {
-        border-color: #4F46E5;
+        border-color: var(--primary);
         transform: translateY(-5px);
         box-shadow: 0 12px 25px rgba(79, 70, 229, 0.15);
     }
     .feature-icon {
         font-size: 2.5rem;
         margin-bottom: 18px;
-        background: var(--background-color);
         width: 64px;
         height: 64px;
         display: flex;
         align-items: center;
         justify-content: center;
         border-radius: 16px;
-        box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        background: var(--primary-light);
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
     }
     .feature-title {
         font-size: 1.3rem;
         font-weight: 700;
-        color: #000000;
         margin-bottom: 10px;
         letter-spacing: -0.01em;
     }
     .feature-desc {
         font-size: 0.95rem;
-        color: #000000;
-        opacity: 0.8;
+        opacity: 0.75;
         line-height: 1.6;
     }
+
+    /* ── Dashboard Stat Cards ── */
     .stat-card {
-        background: #ffffff !important;
-        color: #000000 !important;
+        background: var(--card-bg) !important;
         border-radius: 18px;
         padding: 24px;
         text-align: center;
-        border: 1px solid rgba(128, 128, 128, 0.15);
+        border: 1px solid var(--card-border);
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
         margin-bottom: 1rem;
         transition: transform 0.2s;
@@ -114,36 +108,16 @@ st.markdown("""
     .stat-number {
         font-size: 2.5rem;
         font-weight: 800;
-        color: #4F46E5;
+        color: var(--primary);
         letter-spacing: -0.03em;
     }
     .stat-label {
         font-size: 0.85rem;
-        color: #000000;
-        opacity: 0.8;
+        opacity: 0.75;
         font-weight: 600;
         margin-top: 6px;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-    }
-    
-    [data-testid="stSidebar"] {
-        border-right: 1px solid rgba(128, 128, 128, 0.1);
-    }
-    /* Sleek Scrollbar */
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-    ::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-        background: rgba(128, 128, 128, 0.25);
-        border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: rgba(128, 128, 128, 0.4);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -165,15 +139,15 @@ if not auth.is_authenticated():
 
             st.markdown("""
             <div class="feature-card" style="padding: 20px;">
-                <h4 style="margin:0; color:#4F46E5;">&lt;/&gt; Live Coding Sessions</h4>
+                <h4 style="margin:0; color:var(--primary);"><\/> Live Coding Sessions</h4>
                 <p style="margin:0; font-size: 0.9em; opacity: 0.8;">Practice with real interview questions and get instant feedback.</p>
             </div>
             <div class="feature-card" style="padding: 20px;">
-                <h4 style="margin:0; color:#EC4899;">✨ AI Voice Interviewer</h4>
+                <h4 style="margin:0; color:var(--accent-pink);">✨ AI Voice Interviewer</h4>
                 <p style="margin:0; font-size: 0.9em; opacity: 0.8;">Natural conversation with intelligent follow-up questions.</p>
             </div>
             <div class="feature-card" style="padding: 20px;">
-                <h4 style="margin:0; color:#10B981;">⚡ Performance Analytics</h4>
+                <h4 style="margin:0; color:var(--accent-green);">⚡ Performance Analytics</h4>
                 <p style="margin:0; font-size: 0.9em; opacity: 0.8;">Track progress and identify areas for improvement.</p>
             </div>
             """, unsafe_allow_html=True)
@@ -182,15 +156,15 @@ if not auth.is_authenticated():
             st.markdown('<p class="sub-header">Join thousands of developers who have mastered their interview skills with our AI-powered platform.</p>', unsafe_allow_html=True)
             
             st.markdown("""
-            <div class="feature-card" style="padding: 15px; border-left: 5px solid #10B981;">
+            <div class="feature-card" style="padding: 15px; border-left: 5px solid var(--accent-green);">
                 <h4 style="margin:0;">✅ Free Forever Plan</h4>
                 <p style="margin:0; font-size: 0.9em; opacity: 0.8;">Unlimited practice sessions, no credit card required.</p>
             </div>
-            <div class="feature-card" style="padding: 15px; border-left: 5px solid #4F46E5;">
+            <div class="feature-card" style="padding: 15px; border-left: 5px solid var(--primary);">
                 <h4 style="margin:0;">🎯 AI-Personalized Questions</h4>
                 <p style="margin:0; font-size: 0.9em; opacity: 0.8;">Questions tailored to your resume and skill level.</p>
             </div>
-            <div class="feature-card" style="padding: 15px; border-left: 5px solid #EC4899;">
+            <div class="feature-card" style="padding: 15px; border-left: 5px solid var(--accent-pink);">
                 <h4 style="margin:0;">📈 Detailed Analytics</h4>
                 <p style="margin:0; font-size: 0.9em; opacity: 0.8;">Track your progress with comprehensive insights.</p>
             </div>

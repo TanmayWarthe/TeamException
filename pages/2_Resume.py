@@ -81,7 +81,7 @@ if resume:
         if skills:
             # Display as tags
             skills_html = " ".join(
-                [f'<span style="background:#4F46E5;color:white;padding:4px 12px;border-radius:20px;'
+                [f'<span style="background:var(--primary);color:white;padding:4px 12px;border-radius:20px;'
                  f'margin:2px;display:inline-block;font-size:0.85rem;">{skill}</span>'
                  for skill in skills]
             )

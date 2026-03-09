@@ -23,13 +23,13 @@ apply_global_css()
 
 st.markdown("""
 <style>
+    /* History page cards — uses tokens from ui_utils.py */
     .report-card {
-        background: #ffffff !important;
-        color: #000000 !important;
+        background: var(--card-bg) !important;
         border-radius: 16px;
         padding: 24px;
         margin: 15px 0;
-        border: 1px solid rgba(128, 128, 128, 0.2);
+        border: 1px solid var(--card-border);
     }
     .score-circle {
         display: inline-flex;
@@ -352,15 +352,15 @@ if recording_events:
                 content = data.get("content", "")
                 if role == "interviewer":
                     st.markdown(f"""
-                    <div style="background:#EEF2FF;border-left:4px solid #818CF8;padding:12px;border-radius:8px;margin:8px 0;">
-                        <small style="color:#6B7280;">{ts}</small><br>
+                    <div style="background:var(--primary-light);border-left:4px solid var(--secondary);padding:12px;border-radius:8px;margin:8px 0;">
+                        <small style="color:var(--text-muted);">{ts}</small><br>
                         <strong>🤖 Interviewer:</strong> {content[:500]}
                     </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown(f"""
-                    <div style="background:#F0FDF4;border-left:4px solid #34D399;padding:12px;border-radius:8px;margin:8px 0;">
-                        <small style="color:#6B7280;">{ts}</small><br>
+                    <div style="background:#F0FDF4;border-left:4px solid var(--accent-green-light);padding:12px;border-radius:8px;margin:8px 0;">
+                        <small style="color:var(--text-muted);">{ts}</small><br>
                         <strong>👤 Candidate:</strong> {content[:500]}
                     </div>
                     """, unsafe_allow_html=True)
@@ -370,8 +370,8 @@ if recording_events:
                 q_num = data.get("question_number", "?")
                 explanation = data.get("explanation", "")
                 st.markdown(f"""
-                <div style="background:#FFF7ED;border-left:4px solid #F59E0B;padding:12px;border-radius:8px;margin:8px 0;">
-                    <small style="color:#6B7280;">{ts}</small><br>
+                <div style="background:#FFF7ED;border-left:4px solid var(--accent-yellow);padding:12px;border-radius:8px;margin:8px 0;">
+                    <small style="color:var(--text-muted);">{ts}</small><br>
                     <strong>💻 Code Snapshot (Q{q_num})</strong>
                 </div>
                 """, unsafe_allow_html=True)
@@ -387,8 +387,8 @@ if recording_events:
                     score = analysis.get("overall_score", analysis.get("relevance_score", "N/A"))
                     feedback = analysis.get("overall_feedback", analysis.get("feedback", ""))
                     st.markdown(f"""
-                    <div style="background:#FDF2F8;border-left:4px solid #EC4899;padding:12px;border-radius:8px;margin:8px 0;">
-                        <small style="color:#6B7280;">{ts}</small><br>
+                    <div style="background:#FDF2F8;border-left:4px solid var(--accent-pink);padding:12px;border-radius:8px;margin:8px 0;">
+                        <small style="color:var(--text-muted);">{ts}</small><br>
                         <strong>📊 AI Analysis (Q{q_num})</strong> — Score: {score}<br>
                         {feedback[:300]}
                     </div>
