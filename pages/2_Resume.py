@@ -1,24 +1,23 @@
 """Resume Upload and Management page."""
 
+import sys
+import os
 import streamlit as st
 import json
 from pathlib import Path
 from dotenv import load_dotenv
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
+
 import database as db
 import auth_utils as auth
 from resume_parser import parse_resume
-
-load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
-
-# Require authentication
-auth.require_auth()
+from ui_utils import apply_global_css
 
 st.set_page_config(page_title="IntervueX – Resume", page_icon="📄", layout="wide")
 
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from ui_utils import apply_global_css
+auth.require_auth()
 apply_global_css()
 
 if not st.session_state.get("user_id"):

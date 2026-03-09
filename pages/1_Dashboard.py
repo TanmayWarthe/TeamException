@@ -1,25 +1,24 @@
 """Performance Analytics Dashboard page."""
 
+import sys
+import os
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 from pathlib import Path
 from dotenv import load_dotenv
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
+
 import database as db
 import auth_utils as auth
-
-load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
+from ui_utils import apply_global_css
 
 st.set_page_config(page_title="IntervueX – Dashboard", page_icon="📊", layout="wide")
 
-# Require authentication
 auth.require_auth()
-
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from ui_utils import apply_global_css
 apply_global_css()
 
 st.markdown("""

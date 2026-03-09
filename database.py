@@ -531,8 +531,18 @@ def complete_session(session_id: int):
     conn.close()
 
 
+def _safe_float(val, default: float = 0.0) -> float:
+    """Safely convert a value to float, returning default on failure."""
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
+
 def get_user_sessions(user_id: int, limit: int = 50) -> list:
-    """Get all sessions for a user."""
+    """Get all sessions for a user with guaranteed numeric scores."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -541,7 +551,15 @@ def get_user_sessions(user_id: int, limit: int = 50) -> list:
     """, (user_id, limit))
     rows = cursor.fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    results = []
+    for r in rows:
+        d = dict(r)
+        # Ensure all scores are proper floats
+        for key in ("overall_score", "technical_score", "communication_score",
+                     "reasoning_score", "problem_solving_score"):
+            d[key] = _safe_float(d.get(key))
+        results.append(d)
+    return results
 
 
 def increment_tab_violations(session_id: int, violation_type: str = "tab_switch",
@@ -844,6 +862,104 @@ def get_proctoring_violations(session_id: int) -> list:
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ---- Score Recalculation (Fallback) ----
+
+def recalculate_session_scores_from_questions(session_id: int) -> Optional[dict]:
+    """Recalculate session-level scores from individual question scores.
+
+    This is used as a fallback when the AI final report fails and scores
+    remain at 0 for a completed session.
+    """
+    questions = get_session_questions(session_id)
+    if not questions:
+        return None
+
+    total_code = 0.0
+    total_approach = 0.0
+    total_comm = 0.0
+    count = len(questions)
+
+    for q in questions:
+        total_code += _safe_float(q.get("code_correctness_score"))
+        total_approach += _safe_float(q.get("approach_score"))
+        total_comm += _safe_float(q.get("communication_score"))
+
+    avg_code = total_code / count if count else 0
+    avg_approach = total_approach / count if count else 0
+    avg_comm = total_comm / count if count else 0
+
+    # If all question scores are also 0, nothing to recalculate
+    if avg_code == 0 and avg_approach == 0 and avg_comm == 0:
+        return None
+
+    technical = avg_code
+    communication = avg_comm
+    reasoning = avg_approach
+    problem_solving = (avg_code + avg_approach) / 2
+    overall = (technical + communication + reasoning + problem_solving) / 4
+
+    return {
+        "overall_score": round(overall, 1),
+        "technical_score": round(technical, 1),
+        "communication_score": round(communication, 1),
+        "reasoning_score": round(reasoning, 1),
+        "problem_solving_score": round(problem_solving, 1),
+    }
+
+
+def fix_zero_scores_for_completed_sessions(user_id: int) -> int:
+    """For completed sessions with 0 overall score, recalculate from question data.
+
+    Returns the number of sessions that were fixed.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id FROM interview_sessions
+        WHERE user_id = ? AND status = 'completed' AND overall_score = 0
+    """, (user_id,))
+    rows = cursor.fetchall()
+    conn.close()
+
+    fixed = 0
+    for row in rows:
+        sid = row["id"]
+        scores = recalculate_session_scores_from_questions(sid)
+        if scores and scores["overall_score"] > 0:
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE interview_sessions
+                SET overall_score = ?, technical_score = ?,
+                    communication_score = ?, reasoning_score = ?,
+                    problem_solving_score = ?
+                WHERE id = ?
+            """, (scores["overall_score"], scores["technical_score"],
+                  scores["communication_score"], scores["reasoning_score"],
+                  scores["problem_solving_score"], sid))
+            conn.commit()
+            conn.close()
+            fixed += 1
+    return fixed
+
+
+def get_session_with_safe_scores(session_id: int) -> Optional[dict]:
+    """Get a session by ID with guaranteed numeric scores and parsed feedback."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM interview_sessions WHERE id = ?", (session_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        result = dict(row)
+        result["feedback"] = json.loads(result.get("feedback_json", "{}") or "{}")
+        for key in ("overall_score", "technical_score", "communication_score",
+                     "reasoning_score", "problem_solving_score"):
+            result[key] = _safe_float(result.get(key))
+        return result
+    return None
 
 
 # Initialize the database on import

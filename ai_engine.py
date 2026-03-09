@@ -124,12 +124,45 @@ Return ONLY valid JSON, no markdown."""
         }
 
 
-# ── DSA Question Generation ────────────────────────────────────────────────────
+# ── DSA Question Generation (PDF-based) ───────────────────────────────────────
 
 def generate_dsa_question(skills: list, difficulty: str = "medium",
                            topic: str = None, previous_questions: list = None,
                            user_memory_context: str = "") -> dict:
-    """Generate a DSA interview question personalized to candidate's skills."""
+    """Get a DSA question from the PDF question bank.
+
+    Questions are loaded from CollatedMockQuestions.pdf (placed alongside this
+    file).  The question_bank module parses and caches them.  If the PDF is
+    missing or empty, falls back to AI generation via Groq.
+    """
+    # ── 1. Try the PDF question bank first ────────────────────────────────
+    try:
+        from question_bank import get_random_question
+        q = get_random_question(
+            difficulty=difficulty,
+            topic=topic,
+            previous_questions=previous_questions,
+            skills=skills,
+        )
+        if q is not None:
+            return q
+    except Exception as exc:
+        print(f"[ai_engine] question_bank unavailable ({exc}), falling back to AI.")
+
+    # ── 2. Fallback: AI-generated question via Groq ───────────────────────
+    return _generate_dsa_question_ai(
+        skills=skills,
+        difficulty=difficulty,
+        topic=topic,
+        previous_questions=previous_questions,
+        user_memory_context=user_memory_context,
+    )
+
+
+def _generate_dsa_question_ai(skills: list, difficulty: str = "medium",
+                               topic: str = None, previous_questions: list = None,
+                               user_memory_context: str = "") -> dict:
+    """AI-generated DSA question via Groq (original behaviour, used as fallback)."""
     skill_context = ", ".join(skills) if skills else "general programming"
     prev_context = ""
     if previous_questions:
@@ -196,6 +229,12 @@ def analyze_candidate_response(question: dict, code: str, voice_transcript: str,
             [f"{m['role']}: {m['content']}" for m in conversation_history[-10:]]
         )
 
+    # Include the reference solution from the PDF if available
+    ref_solution_ctx = ""
+    ref_solution = question.get("solution_code", "")
+    if ref_solution:
+        ref_solution_ctx = f"\nReference solution from question bank:\n```\n{ref_solution[:1500]}\n```\n"
+
     messages = [
         {
             "role": "system",
@@ -205,6 +244,7 @@ Question: {question.get('title', '')}: {question.get('description', '')}
 Expected approach: {question.get('expected_approach', '')}
 Expected time complexity: {question.get('time_complexity', '')}
 Expected space complexity: {question.get('space_complexity', '')}
+{ref_solution_ctx}
 {conv_context}
 
 Candidate's code:

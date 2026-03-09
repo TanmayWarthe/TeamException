@@ -140,7 +140,7 @@ if not auth.is_authenticated():
 
             st.markdown("""
             <div class="feature-card" style="padding: 20px;">
-                <h4 style="margin:0; color:var(--primary);"><\/> Live Coding Sessions</h4>
+                <h4 style="margin:0; color:var(--primary);">&lt;/&gt; Live Coding Sessions</h4>
                 <p style="margin:0; font-size: 0.9em; opacity: 0.8;">Practice with real interview questions and get instant feedback.</p>
             </div>
             <div class="feature-card" style="padding: 20px;">

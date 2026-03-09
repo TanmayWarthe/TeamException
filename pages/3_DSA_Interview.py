@@ -1,10 +1,17 @@
 """DSA Interview Simulation page with voice AI agent."""
 
+import sys
+import os
 import streamlit as st
 import json
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
+import streamlit.components.v1 as components
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
+
 import database as db
 import auth_utils as auth
 from ai_engine import (
@@ -14,22 +21,14 @@ from ai_engine import (
     generate_final_report,
 )
 from voice_handler import transcribe_audio, analyze_speech_patterns, synthesize_speech, get_browser_stt_component
-import streamlit.components.v1 as components
 from browser_lock import inject_browser_lock
 from webcam_proctor import inject_webcam_proctor
 from user_memory import extract_memories_from_conversation, extract_memories_with_ai, get_memory_context_for_ai
-
-load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
+from ui_utils import apply_global_css
 
 st.set_page_config(page_title="IntervueX – DSA Interview", page_icon="💻", layout="wide")
 
-# Require authentication
 auth.require_auth()
-
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from ui_utils import apply_global_css
 apply_global_css()
 
 # Custom CSS for interview page
@@ -339,9 +338,12 @@ else:
     question = st.session_state.dsa_current_question
 
     # Display question
+    _q_source = "📚 From Question Bank" if question.get("solution_code") else "🤖 AI Generated"
+    _q_tags = ", ".join(question.get("topic_tags", [])) or "General"
     st.markdown(f"""
     <div class="question-card">
         <h3>📝 {question.get('title', 'Problem')}</h3>
+        <p style="font-size:0.8rem;opacity:0.7;">{_q_source} | {question.get('difficulty', 'medium').title()} | {_q_tags}</p>
         <p>{question.get('description', '')}</p>
     </div>
     """, unsafe_allow_html=True)
@@ -355,6 +357,14 @@ else:
                 st.code(f"Input: {ex.get('input', '')}\nOutput: {ex.get('output', '')}")
                 if ex.get("explanation"):
                     st.markdown(f"_Explanation: {ex['explanation']}_")
+
+    # Test cases from PDF (collapsed)
+    test_cases = question.get("test_cases", [])
+    if test_cases:
+        with st.expander(f"🧪 Test Cases ({len(test_cases)} available)"):
+            for i, tc in enumerate(test_cases):
+                st.markdown(f"**Test Case {i + 1}:**")
+                st.code(f"Input:\n{tc.get('input', '')}\n\nExpected Output:\n{tc.get('output', '')}")
 
     # Constraints
     constraints = question.get("constraints", [])
@@ -647,10 +657,10 @@ else:
                 for i, fq in enumerate(follow_ups):
                     st.markdown(f"{i + 1}. {fq}")
 
-        # Suggested solutions
+        # Suggested solutions (AI-generated)
         solutions = analysis.get("suggested_solutions", [])
         if solutions:
-            with st.expander("💡 Suggested Solutions"):
+            with st.expander("💡 AI Suggested Solutions"):
                 for sol in solutions:
                     if isinstance(sol, dict):
                         st.markdown(f"**{sol.get('approach', 'Alternative Approach')}**")
@@ -659,3 +669,27 @@ else:
                             st.code(sol["code"], language="python")
                         st.markdown(f"_Time: {sol.get('time_complexity', 'N/A')} | Space: {sol.get('space_complexity', 'N/A')}_")
                         st.markdown("---")
+
+        # ── Optimal Solution from PDF Question Bank ──────────────────────────
+        pdf_solution = question.get("solution_code", "")
+        if pdf_solution:
+            with st.expander("⭐ Optimal Solution (from Question Bank)", expanded=False):
+                st.markdown("This is the reference solution from the curated question bank:")
+                st.code(pdf_solution, language="python")
+                if question.get("time_complexity"):
+                    st.markdown(f"**Time Complexity:** {question['time_complexity']}")
+                if question.get("space_complexity"):
+                    st.markdown(f"**Space Complexity:** {question['space_complexity']}")
+                if question.get("expected_approach"):
+                    st.markdown(f"**Approach:** {question['expected_approach']}")
+
+        # ── Test Cases from PDF (for self-checking) ─────────────────────────
+        pdf_tests = question.get("test_cases", [])
+        if pdf_tests:
+            with st.expander(f"🧪 Verify Against Test Cases ({len(pdf_tests)} cases)"):
+                st.markdown("Use these test cases to verify your solution:")
+                for i, tc in enumerate(pdf_tests):
+                    st.markdown(f"**Test {i + 1}:**")
+                    st.code(f"Input:\n{tc.get('input', '')}\n\nExpected Output:\n{tc.get('output', '')}")
+                    st.markdown("---")
+2
